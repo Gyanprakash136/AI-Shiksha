@@ -1,0 +1,256 @@
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  extensions = [vector]
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  ADMIN
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  password_hash String
+  role          Role      @default(STUDENT)
+  avatar_url    String?
+  bio           String?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  instructor_profile InstructorProfile?
+  enrollments        Enrollment[]
+  payments           Payment[]
+  lesson_progress    LessonProgress[]
+  course_progress    CourseProgress[]
+  reviews            Review[]
+  certificates       Certificate[]
+  ai_conversations   AIConversation[]
+  
+  // Refresh token rotation
+  refresh_token_hash String?
+
+  @@map("users")
+}
+
+model InstructorProfile {
+  id             String  @id @default(uuid())
+  user_id        String  @unique
+  user           User    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  headline       String?
+  description    String?
+  rating         Float   @default(0)
+  verified       Boolean @default(false)
+  total_students Int     @default(0)
+  total_courses  Int     @default(0)
+  
+  courses        Course[]
+  payouts        VendorPayout[]
+
+  @@map("instructor_profiles")
+}
+
+model Course {
+  id            String   @id @default(uuid())
+  instructor_id String
+  instructor    InstructorProfile @relation(fields: [instructor_id], references: [id])
+  title         String
+  slug          String   @unique
+  description   String?
+  thumbnail_url String?
+  price         Float
+  level         String? // Beginner, Intermediate, Advanced
+  language      String?
+  published     Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  modules       Module[]
+  enrollments   Enrollment[]
+  payments      Payment[]
+  reviews       Review[]
+  certificates  Certificate[]
+  course_progress CourseProgress[]
+  ai_conversations AIConversation[]
+
+  @@map("courses")
+}
+
+model Module {
+  id        String   @id @default(uuid())
+  course_id String
+  course    Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  title     String
+  position  Int
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  lessons   Lesson[]
+
+  @@map("modules")
+}
+
+model Lesson {
+  id               String   @id @default(uuid())
+  module_id        String
+  module           Module   @relation(fields: [module_id], references: [id], onDelete: Cascade)
+  title            String
+  video_url        String?
+  content          Json?    @db.JsonB
+  duration_seconds Int      @default(0)
+  position         Int
+  is_preview       Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  progress         LessonProgress[]
+  embeddings       LessonEmbedding[]
+  ai_conversations AIConversation[]
+
+  @@map("lessons")
+}
+
+model Enrollment {
+  id          String   @id @default(uuid())
+  student_id  String
+  user        User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id   String
+  course      Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  payment_id  String?  @unique
+  status      String   @default("active") // active, completed, cancelled
+  enrolled_at DateTime @default(now())
+
+  @@unique([student_id, course_id])
+  @@map("enrollments")
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  user_id        String
+  user           User     @relation(fields: [user_id], references: [id])
+  course_id      String
+  course         Course   @relation(fields: [course_id], references: [id])
+  amount         Float
+  payment_provider String // stripe
+  payment_status String   // pending, completed, failed, refunded
+  transaction_id String?
+  created_at     DateTime @default(now())
+
+  @@map("payments")
+}
+
+model VendorPayout {
+  id            String   @id @default(uuid())
+  instructor_id String
+  instructor    InstructorProfile @relation(fields: [instructor_id], references: [id])
+  amount        Float
+  status        String   // pending, paid, failed
+  period_start  DateTime
+  period_end    DateTime
+  created_at    DateTime @default(now())
+
+  @@map("vendor_payouts")
+}
+
+model LessonProgress {
+  id              String   @id @default(uuid())
+  student_id      String
+  user            User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  lesson_id       String
+  lesson          Lesson   @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  watched_seconds Int      @default(0)
+  completed       Boolean  @default(false)
+  completed_at    DateTime?
+  updated_at      DateTime @updatedAt
+
+  @@unique([student_id, lesson_id])
+  @@map("lesson_progress")
+}
+
+model CourseProgress {
+  id                  String   @id @default(uuid())
+  student_id          String
+  user                User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id           String
+  course              Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  progress_percentage Float    @default(0)
+  completed           Boolean  @default(false)
+  last_accessed_at    DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  @@unique([student_id, course_id])
+  @@map("course_progress")
+}
+
+model Review {
+  id          String   @id @default(uuid())
+  student_id  String
+  user        User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id   String
+  course      Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String?
+  created_at  DateTime @default(now())
+
+  @@unique([student_id, course_id])
+  @@map("reviews")
+}
+
+model Certificate {
+  id              String   @id @default(uuid())
+  student_id      String
+  user            User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id       String
+  course          Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  certificate_url String
+  issued_at       DateTime @default(now())
+
+  @@unique([student_id, course_id])
+  @@map("certificates")
+}
+
+// AI System
+model AIConversation {
+  id          String   @id @default(uuid())
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  lesson_id   String?
+  lesson      Lesson?  @relation(fields: [lesson_id], references: [id])
+  course_id   String?
+  course      Course?  @relation(fields: [course_id], references: [id])
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  messages    AIMessage[]
+
+  @@map("ai_conversations")
+}
+
+model AIMessage {
+  id              String         @id @default(uuid())
+  conversation_id String
+  conversation    AIConversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  role            String         // user, assistant
+  content         String
+  created_at      DateTime       @default(now())
+
+  @@map("ai_messages")
+}
+
+model LessonEmbedding {
+  id            String                 @id @default(uuid())
+  lesson_id     String
+  lesson        Lesson                 @relation(fields: [lesson_id], references: [id], onDelete: Cascade)
+  content_chunk String
+  embedding     Unsupported("vector")? // pgvector type
+  created_at    DateTime               @default(now())
+
+  @@map("lesson_embeddings")
+}

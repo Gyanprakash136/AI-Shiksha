@@ -1,0 +1,198 @@
+import { AdminDashboardLayout } from "@/components/layout/AdminDashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Search,
+  Filter,
+  MoreHorizontal,
+  GraduationCap,
+  BookOpen,
+  TrendingUp,
+  Mail,
+} from "lucide-react";
+import { UnifiedDashboard } from "@/components/layout/UnifiedDashboard";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+const students = [
+  { id: 1, name: "Alex Johnson", email: "alex@example.com", enrolledCourses: 5, completedCourses: 3, progress: 78, status: "active", joinedAt: "2024-01-15" },
+  { id: 2, name: "Maria Garcia", email: "maria@example.com", enrolledCourses: 8, completedCourses: 6, progress: 92, status: "active", joinedAt: "2023-11-20" },
+  { id: 3, name: "James Wilson", email: "james@example.com", enrolledCourses: 3, completedCourses: 1, progress: 45, status: "inactive", joinedAt: "2024-02-10" },
+  { id: 4, name: "Sarah Lee", email: "sarah@example.com", enrolledCourses: 12, completedCourses: 10, progress: 95, status: "active", joinedAt: "2023-08-05" },
+  { id: 5, name: "Michael Brown", email: "michael@example.com", enrolledCourses: 4, completedCourses: 2, progress: 60, status: "active", joinedAt: "2024-03-01" },
+];
+
+export default function StudentsPage() {
+  const { user } = useAuth();
+
+  const content = (
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Total Students</p>
+                <p className="text-2xl font-bold">12,847</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-primary/20 flex items-center justify-center">
+                <GraduationCap className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Learners</p>
+                <p className="text-2xl font-bold">8,234</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-accent/20 flex items-center justify-center">
+                <BookOpen className="h-5 w-5 text-accent" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-chart-3/10 to-chart-3/5 border-chart-3/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">Avg. Completion</p>
+                <p className="text-2xl font-bold">76%</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-chart-3/20 flex items-center justify-center">
+                <TrendingUp className="h-5 w-5 text-chart-3" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-gradient-to-br from-chart-4/10 to-chart-4/5 border-chart-4/20">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">New This Month</p>
+                <p className="text-2xl font-bold">+1,234</p>
+              </div>
+              <div className="h-10 w-10 rounded-lg bg-chart-4/20 flex items-center justify-center">
+                <GraduationCap className="h-5 w-5 text-chart-4" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters & Search */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <CardTitle>All Students</CardTitle>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input placeholder="Search students..." className="pl-9 w-64" />
+              </div>
+              <Button variant="outline" size="icon">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Student</TableHead>
+                <TableHead>Enrolled</TableHead>
+                <TableHead>Completed</TableHead>
+                <TableHead>Progress</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead className="w-10"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {students.map((student) => (
+                <TableRow key={student.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                          {student.name.split(" ").map(n => n[0]).join("")}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <p className="font-medium">{student.name}</p>
+                        <p className="text-sm text-muted-foreground">{student.email}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>{student.enrolledCourses} courses</TableCell>
+                  <TableCell>{student.completedCourses} courses</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full"
+                          style={{ width: `${student.progress}%` }}
+                        />
+                      </div>
+                      <span className="text-sm">{student.progress}%</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={student.status === "active" ? "default" : "secondary"}>
+                      {student.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{student.joinedAt}</TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>View Profile</DropdownMenuItem>
+                        <DropdownMenuItem>View Enrollments</DropdownMenuItem>
+                        <DropdownMenuItem>
+                          <Mail className="h-4 w-4 mr-2" /> Send Email
+                        </DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive focus:bg-destructive focus:text-destructive-foreground">Suspend</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  if (user?.role === "admin") {
+    return (
+      <AdminDashboardLayout title="Students" subtitle="Manage student accounts and enrollments">
+        {content}
+      </AdminDashboardLayout>
+    );
+  }
+
+  return (
+    <UnifiedDashboard title="Students" subtitle="Manage enrolled students">
+      {content}
+    </UnifiedDashboard>
+  );
+}
