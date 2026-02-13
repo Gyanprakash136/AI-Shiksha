@@ -77,7 +77,7 @@ This is the robust backend API for the AI Shiksha Learning Management System (LM
     npm run prisma:seed
     ```
 
-## 🏃‍♂️ Running the Application
+## Running the Application
 
 *   **Development Mode:**
     ```bash

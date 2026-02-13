@@ -40,14 +40,14 @@ npm run dev
 ```
 The application will launch at `http://localhost:8081`.
 
-## 📚 Documentation
+## Documentation
 
 For detailed installation instructions, tech stack information, and configuration guides, please refer to the specific README files in each directory:
 
--   👉 **[Read Backend Documentation](./Backend/README.md)**
--   👉 **[Read Frontend Documentation](./Frontend/README.md)**
+-   **[Read Backend Documentation](./Backend/README.md)**
+-   **[Read Frontend Documentation](./Frontend/README.md)**
 
-## 🌟 Key Features
+## Key Features
 
 -   **Role-Based Access:** specialized dashboards for Admins, Instructors, and Students.
 -   **AI-Powered Course Builder:** Create courses with AI assistance for curriculum design.

@@ -95,7 +95,7 @@ src/
 └── App.tsx          # Main application entry
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! Please ensure you lint your code before submitting a Pull Request.
 
