@@ -41,12 +41,14 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, ChevronsUpDown, X, Loader2, Link as LinkIcon, UploadCloud, Plus } from 'lucide-react';
+import { Check, ChevronsUpDown, X, Loader2, Link as LinkIcon, UploadCloud, Plus, Sparkles, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Categories, Tags } from '@/lib/api';
+import { useUsers } from '@/hooks/useUsers';
 import { RichTextEditor } from '@/components/editors/RichTextEditor';
 import { ImageUpload, VideoUpload } from '@/components/editors/FileUpload';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { FloatingSaveBar } from './FloatingSaveBar';
 import { toast } from 'sonner';
 
 const formSchema = z.object({
@@ -60,15 +62,18 @@ const formSchema = z.object({
     tag_ids: z.array(z.string()).default([]),
     thumbnail_url: z.string().optional(),
     intro_video_url: z.string().optional(),
+    learning_outcomes: z.array(z.string()).default([]),
+    author_id: z.string().optional(),
 });
 
 interface BasicInfoStepProps {
     courseId: string;
     initialData?: any;
     onSave: (data: z.infer<typeof formSchema>) => Promise<void>;
+    onSaveAndContinue: (data: z.infer<typeof formSchema>) => Promise<void>;
 }
 
-export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepProps) {
+export function BasicInfoStep({ courseId, initialData, onSave, onSaveAndContinue }: BasicInfoStepProps) {
     const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
     const [availableTags, setAvailableTags] = useState<{ id: string; name: string }[]>([]);
     const [loading, setLoading] = useState(false);
@@ -84,11 +89,24 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
     const [isAddTagOpen, setIsAddTagOpen] = useState(false);
     const [newTagName, setNewTagName] = useState('');
     const [creatingMeta, setCreatingMeta] = useState(false);
+    const [newOutcome, setNewOutcome] = useState('');
+
+    const { users: allUsers } = useUsers(); // Fetch all users to filter for authors
+    // Filter likely authors (Admins & Instructors)
+    const authors = allUsers.filter(u =>
+        u.role === 'ADMIN' ||
+        u.role === 'INSTRUCTOR' ||
+        u.role === 'TEACHER' ||
+        u.role === 'admin' ||
+        u.role === 'instructor' ||
+        u.role === 'teacher'
+    );
 
     const form = useForm<z.infer<typeof formSchema>>({
         resolver: zodResolver(formSchema),
+        mode: 'onChange', // Enable real-time validation
         defaultValues: {
-            title: initialData?.title || '',
+            title: initialData?.title === 'Untitled Course' ? '' : (initialData?.title || ''),
             slug: initialData?.slug || '',
             subtitle: initialData?.subtitle || '',
             description: initialData?.description || '',
@@ -98,8 +116,22 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
             tag_ids: initialData?.tags?.map((t: any) => t.tag_id) || [],
             thumbnail_url: initialData?.thumbnail_url || '',
             intro_video_url: initialData?.intro_video_url || '',
+            learning_outcomes: initialData?.learning_outcomes || [],
+            author_id: initialData?.instructor?.user?.id || '',
         },
     });
+
+    // Auto-generate slug from title
+    const title = form.watch('title');
+    useEffect(() => {
+        if (title) {
+            const slug = title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/(^-|-$)+/g, '');
+            form.setValue('slug', slug, { shouldValidate: true, shouldDirty: true });
+        }
+    }, [title, form]);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -187,24 +219,66 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                 <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Left Column: Main Info */}
                     <div className="lg:col-span-2 space-y-8">
-                        <Card className="border-none shadow-sm bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden">
-                            <CardHeader className="bg-gray-50/50 border-b border-gray-100">
-                                <CardTitle className="text-xl font-medium text-gray-800">Basic Information</CardTitle>
+                        <Card className="border-none shadow-sm bg-white/50 backdrop-blur-md rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300">
+                            <CardHeader className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 border-b border-gray-100 p-6">
+                                <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                    <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
+                                        <FileText className="h-5 w-5" />
+                                    </div>
+                                    Basic Information
+                                </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-6 pt-6">
+                            <CardContent className="space-y-6 pt-8 p-6">
                                 <FormField
                                     control={form.control}
                                     name="title"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-gray-700 font-medium">Course Title</FormLabel>
+                                            <FormLabel className="text-gray-700 font-medium">
+                                                Course Title <span className="text-red-500 ml-1">*</span>
+                                            </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="e.g. Advanced Web Development"
-                                                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-xl h-12"
+                                                    className="bg-gray-50 border-gray-200 focus:bg-white focus:border-blue-500 rounded-xl h-12 text-base shadow-sm focus:ring-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                                                     {...field}
                                                 />
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {/* Author Selection */}
+                                <FormField
+                                    control={form.control}
+                                    name="author_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-gray-700 font-medium">Author (Instructor)</FormLabel>
+                                            <Select onValueChange={field.onChange} value={field.value} disabled={!authors.length}>
+                                                <FormControl>
+                                                    <SelectTrigger className="bg-gray-50 border-gray-200 focus:bg-white focus:border-purple-500 rounded-xl h-12 shadow-sm focus:ring-0 focus:ring-offset-0">
+                                                        <SelectValue placeholder="Select Course Author" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent className="rounded-xl border-gray-100 shadow-xl max-h-60">
+                                                    {authors.map((author) => (
+                                                        <SelectItem key={author.id} value={author.id} className="cursor-pointer py-3 focus:bg-purple-50">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="h-6 w-6 rounded-full bg-purple-100 text-purple-700 flex items-center justify-center text-xs font-bold">
+                                                                    {author.name.charAt(0)}
+                                                                </div>
+                                                                <span className="font-medium text-gray-700">{author.name}</span>
+                                                                <span className="text-xs text-gray-400 ml-2">({author.role})</span>
+                                                            </div>
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormDescription className="text-xs text-gray-400">
+                                                Assign an instructor to manage this course.
+                                            </FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                     )}
@@ -215,11 +289,13 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                                     name="slug"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-gray-700 font-medium">Course Slug</FormLabel>
+                                            <FormLabel className="text-gray-700 font-medium">
+                                                Course Slug <span className="text-red-500 ml-1">*</span>
+                                            </FormLabel>
                                             <FormControl>
                                                 <Input
                                                     placeholder="e.g. advanced-web-development"
-                                                    className="bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-xl h-12"
+                                                    className="bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-0 transition-all rounded-xl h-12"
                                                     {...field}
                                                 />
                                             </FormControl>
@@ -281,7 +357,7 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                                                 <FormControl>
                                                     <Input
                                                         placeholder="e.g. English"
-                                                        className="bg-gray-50/50 border-gray-200 focus:bg-white transition-all rounded-xl h-12"
+                                                        className="bg-gray-50/50 border-gray-200 focus:bg-white focus:ring-0 transition-all rounded-xl h-12"
                                                         {...field}
                                                     />
                                                 </FormControl>
@@ -354,7 +430,7 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                                     name="tag_ids"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                            <FormLabel className="text-gray-700 font-medium">Tags</FormLabel>
+                                            <FormLabel className="text-grey-700 font-medium">Tags</FormLabel>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <FormControl>
@@ -362,7 +438,7 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                                                             variant="outline"
                                                             role="combobox"
                                                             className={cn(
-                                                                "w-full justify-between bg-gray-50/50 border-gray-200 bg-white hover:bg-gray-100 transition-all rounded-xl h-12 font-normal",
+                                                                "w-full justify-between bg-gray-50/50 border-gray-200 bg-white hover:bg-gray-100 hover:text-black transition-all rounded-xl h-12 font-normal",
                                                                 !field.value?.length && "text-muted-foreground"
                                                             )}
                                                         >
@@ -400,7 +476,7 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                                                                                 : [...current, tag.id];
                                                                             field.onChange(updated);
                                                                         }}
-                                                                        className="aria-selected:bg-blue-50 aria-selected:text-blue-700 cursor-pointer py-2.5 px-3 rounded-lg mx-1 my-0.5"
+                                                                        className="cursor-pointer py-2.5 px-3 rounded-lg mx-1 my-0.5 hover:bg-gray-100 hover:text-gray-900 aria-selected:bg-gray-200 aria-selected:text-gray-900"
                                                                     >
                                                                         <Check
                                                                             className={cn(
@@ -474,22 +550,121 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-sm bg-white/80 backdrop-blur-sm rounded-xl overflow-hidden">
-                            <CardHeader className="bg-gray-50/50 border-b border-gray-100">
-                                <CardTitle className="text-xl font-medium text-gray-800">Description</CardTitle>
+                        {/* What You'll Learn Section */}
+                        <FormField
+                            control={form.control}
+                            name="learning_outcomes"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <Card className="border-none shadow-sm bg-white/50 backdrop-blur-md rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300">
+                                        <CardHeader className="bg-gradient-to-r from-purple-50/50 to-pink-50/50 border-b border-gray-100 p-6">
+                                            <CardTitle className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                                <div className="p-2 bg-purple-100 rounded-lg text-purple-600">
+                                                    <Sparkles className="h-5 w-5" />
+                                                </div>
+                                                What You'll Learn
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="pt-8 p-6 space-y-4">
+                                            <FormDescription className="text-gray-600 mb-6 bg-purple-50/50 p-4 rounded-xl text-sm border border-purple-100 flex gap-2">
+                                                <Sparkles className="h-4 w-4 text-purple-500 mt-0.5 shrink-0" />
+                                                Add 3-5 clear learning outcomes to help students understand the value of your course.
+                                            </FormDescription>
+
+                                            {/* List of existing outcomes */}
+                                            {field.value && field.value.length > 0 && (
+                                                <div className="space-y-3 mb-6">
+                                                    {field.value.map((outcome, index) => (
+                                                        <div
+                                                            key={index}
+                                                            className="flex items-start gap-4 p-4 bg-white border border-gray-100 rounded-2xl group hover:border-purple-200 hover:shadow-sm transition-all shadow-sm/50"
+                                                        >
+                                                            <div className="min-w-6 h-6 rounded-full bg-green-100 flex items-center justify-center mt-0.5 text-green-700">
+                                                                <Check className="h-3.5 w-3.5" />
+                                                            </div>
+                                                            <p className="flex-1 text-base text-gray-700 leading-relaxed">{outcome}</p>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const updated = field.value?.filter((_, i) => i !== index);
+                                                                    field.onChange(updated);
+                                                                }}
+                                                                className="opacity-0 group-hover:opacity-100 transition-opacity p-2 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-xl"
+                                                            >
+                                                                <X className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Add new outcome */}
+                                            <div className="flex gap-3">
+                                                <Input
+                                                    placeholder="e.g. Master React fundamentals and advanced patterns"
+                                                    value={newOutcome}
+                                                    onChange={(e) => setNewOutcome(e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            if (newOutcome.trim()) {
+                                                                field.onChange([...(field.value || []), newOutcome.trim()]);
+                                                                setNewOutcome('');
+                                                            }
+                                                        }
+                                                    }}
+                                                    className="flex-1 bg-gray-50 border-gray-200 focus:bg-white focus:border-purple-500 focus:ring-0 transition-all rounded-xl h-12 text-base"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (newOutcome.trim()) {
+                                                            field.onChange([...(field.value || []), newOutcome.trim()]);
+                                                            setNewOutcome('');
+                                                        }
+                                                    }}
+                                                    disabled={!newOutcome.trim()}
+                                                    className="rounded-xl bg-gray-900 hover:bg-black text-white px-6 h-12 shadow-lg shadow-gray-200/50 transition-all hover:-translate-y-0.5 active:translate-y-0 disabled:translate-y-0 disabled:opacity-50"
+                                                >
+                                                    <Plus className="h-5 w-5" />
+                                                </Button>
+                                            </div>
+
+                                            {(!field.value || field.value.length === 0) && (
+                                                <div className="flex flex-col items-center justify-center py-12 text-center border-2 border-dashed border-gray-200 rounded-3xl bg-gray-50/30 mt-6">
+                                                    <div className="h-12 w-12 bg-gray-100 rounded-2xl flex items-center justify-center mb-3 text-gray-400">
+                                                        <Sparkles className="h-6 w-6" />
+                                                    </div>
+                                                    <p className="text-base text-gray-600 font-medium">Start adding outcomes!</p>
+                                                    <p className="text-sm text-gray-400 max-w-xs mx-auto mt-1">What will students be able to do after this course?</p>
+                                                </div>
+                                            )}
+
+                                            <FormMessage />
+                                        </CardContent>
+                                    </Card>
+                                </FormItem>
+                            )}
+                        />
+
+                        <Card className="border-none shadow-sm bg-white/50 backdrop-blur-md rounded-3xl overflow-hidden hover:shadow-md transition-all duration-300">
+                            <CardHeader className="bg-gray-50/50 border-b border-gray-100 p-6">
+                                <CardTitle className="text-xl font-semibold text-gray-800">Description</CardTitle>
                             </CardHeader>
-                            <CardContent className="pt-6">
+                            <CardContent className="pt-6 p-6">
                                 <FormField
                                     control={form.control}
                                     name="description"
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormControl>
-                                                <RichTextEditor
-                                                    content={field.value || ''}
-                                                    onChange={field.onChange}
-                                                    placeholder="Detailed course description..."
-                                                />
+                                                <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+                                                    <RichTextEditor
+                                                        content={field.value || ''}
+                                                        onChange={field.onChange}
+                                                        placeholder="Describe what students will learn, prerequisites, and course outcomes..."
+                                                    />
+                                                </div>
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -595,26 +770,37 @@ export function BasicInfoStep({ courseId, initialData, onSave }: BasicInfoStepPr
                     </div>
                 </div>
 
-                {/* Footer Save Button */}
-                <div className="sticky bottom-0 -mx-4 md:-mx-6 -mb-6 p-4 md:p-6 bg-white border-t border-gray-100 flex justify-end gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.02)] z-20 mt-auto">
-                    <Button
-                        variant="ghost"
-                        type="button"
-                        onClick={() => { /* Handle cancel */ }}
-                        className="rounded-xl hover:bg-gray-100 text-gray-700 font-medium px-6"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={saving || loading}
-                        className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200/50 transition-all hover:shadow-blue-300/50 px-8 font-medium"
-                    >
-                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save & Continue
-                    </Button>
-                </div>
+                {/* Floating Save Bar */}
+                {/* Floating Save Bar - Manually trigger form submit handlers */}
+                <FloatingSaveBar
+                    onSave={() => form.handleSubmit(async (data) => {
+                        setSaving(true);
+                        try {
+                            await onSave(data);
+                        } finally {
+                            setSaving(false);
+                        }
+                    })()}
+                    onSaveAndContinue={() => form.handleSubmit(async (data) => {
+                        setSaving(true);
+                        try {
+                            await onSaveAndContinue(data);
+                        } finally {
+                            setSaving(false);
+                        }
+                    })()}
+                    loading={saving || loading}
+                    isDirty={form.formState.isDirty}
+                    canProceed={form.formState.isValid}
+                    saveLabel="Save Changes"
+                    saveAndContinueLabel="Next: Curriculum"
+                    onCancel={() => window.location.href = '/dashboard/courses'}
+                    cancelLabel="Exit Wizard"
+                />
+
+                <div className="h-12" /> {/* Spacer */}
             </form>
         </Form>
     );
 }
+

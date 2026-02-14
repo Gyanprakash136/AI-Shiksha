@@ -11,6 +11,8 @@ interface CourseBuilderLayoutProps {
     onPreview?: () => void;
     onSave?: () => void;
     saving?: boolean;
+    disabled?: boolean;
+    buttonText?: string;
     className?: string; // Content wrapper class
 }
 
@@ -21,6 +23,8 @@ export function CourseBuilderLayout({
     onPreview,
     onSave,
     saving = false,
+    disabled = false,
+    buttonText,
     className,
 }: CourseBuilderLayoutProps) {
     const navigate = useNavigate();
@@ -60,18 +64,18 @@ export function CourseBuilderLayout({
                     {onSave && (
                         <Button
                             onClick={onSave}
-                            disabled={saving}
-                            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20"
+                            disabled={saving || disabled}
+                            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white shadow-md shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             {saving ? (
                                 <>
                                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                                    Saving...
+                                    {buttonText ? buttonText.replace('Publish', 'Publishing').replace('Update', 'Updating') : 'Saving...'}
                                 </>
                             ) : (
                                 <>
                                     <Save className="h-4 w-4" />
-                                    Save Changes
+                                    {buttonText || 'Save Changes'}
                                 </>
                             )}
                         </Button>

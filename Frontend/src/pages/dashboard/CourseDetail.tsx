@@ -27,7 +27,9 @@ import {
   BarChart3,
   MessageSquare,
   Tag,
+  CheckCircle,
 } from "lucide-react";
+import { CompletionTab } from "@/components/course-management/CompletionTab";
 
 const courseData = {
   id: "1",
@@ -108,7 +110,7 @@ export default function CourseDetail() {
               <div className="w-full lg:w-80 h-48 rounded-lg bg-muted overflow-hidden shrink-0">
                 <img src={courseData.thumbnail} alt={courseData.title} className="w-full h-full object-cover" />
               </div>
-              
+
               {/* Info */}
               <div className="flex-1">
                 <div className="flex items-start justify-between gap-4 mb-3">
@@ -129,7 +131,7 @@ export default function CourseDetail() {
                   </div>
                 </div>
                 <p className="text-muted-foreground mb-4">{courseData.description}</p>
-                
+
                 {/* Stats Row */}
                 <div className="flex flex-wrap gap-6 text-sm">
                   <div className="flex items-center gap-2">
@@ -183,6 +185,10 @@ export default function CourseDetail() {
             <TabsTrigger value="promotions" className="gap-2">
               <Tag className="h-4 w-4" />
               Promotions
+            </TabsTrigger>
+            <TabsTrigger value="completion" className="gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Completion
             </TabsTrigger>
             <TabsTrigger value="settings" className="gap-2">
               <Settings className="h-4 w-4" />
@@ -372,6 +378,11 @@ export default function CourseDetail() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Completion Tab */}
+          <TabsContent value="completion">
+            <CompletionTab />
           </TabsContent>
 
           {/* Settings Tab */}

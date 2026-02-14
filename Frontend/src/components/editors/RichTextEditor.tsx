@@ -14,7 +14,7 @@ import {
     DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Bold,
     Italic,
@@ -30,11 +30,13 @@ import {
     Link as LinkIcon,
     Image as ImageIcon,
     Youtube as YoutubeIcon,
+    Sparkles,
 } from 'lucide-react';
-import { AiAssistantButton } from '@/components/common/AiAssistantButton';
+import { AiContentGeneratorModal } from '@/components/common/AiContentGeneratorModal';
+import { cn } from '@/lib/utils';
 
 interface RichTextEditorProps {
-    content: string;
+    content: string | object; // Allow JSON content
     onChange: (content: string) => void;
     placeholder?: string;
 }
@@ -46,6 +48,7 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
     const [linkDialogOpen, setLinkDialogOpen] = useState(false);
     const [imageDialogOpen, setImageDialogOpen] = useState(false);
     const [youtubeDialogOpen, setYoutubeDialogOpen] = useState(false);
+    const [aiModalOpen, setAiModalOpen] = useState(false);
 
     const editor = useEditor({
         extensions: [
@@ -65,10 +68,38 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4',
+                class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4 font-sans text-gray-700 leading-relaxed',
             },
         },
     });
+
+    // Update editor content when content prop changes
+    useEffect(() => {
+        if (editor && content !== undefined) {
+            const currentContent = editor.getHTML();
+            // Prevent infinite loop by checking if content actually changed
+            // However, comparing HTML strings vs JSON object is tricky.
+            // Simplest is to just setContent if it's different.
+            // But existing content prop might be clean or different format.
+            // Let's rely on Tiptap's efficient update if possible, or just set it.
+            // If we just set it, cursor position might be lost if typing.
+            // But here we are fixing "stale content on open" or "reset".
+            // The main issue is that initial `content` passed to useEditor is only used once.
+            // If the parent updates `content` (like when data loads), we need to update editor.
+
+            // We should check if editor is focused to avoid disrupting user typing if they are typing.
+            // If the editor is focused, we assume the user is managing the state via typing.
+            // We only want to force an update if the content prop changes externally (e.g. initial load, or reset),
+            // NOT when the change originated from the editor's onChange event.
+
+            if (!editor.isFocused) {
+                // only update if content is different to avoid cursor jumps or internal reset
+                // Tiptap's setContent handles parsing, but we want to avoid it if possible loop.
+                // A simple way to break the loop for generic updates is checking focus.
+                editor.commands.setContent(content);
+            }
+        }
+    }, [editor, content]);
 
     if (!editor) {
         return null;
@@ -98,136 +129,162 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
         }
     };
 
+    const ToolbarButton = ({
+        isActive = false,
+        onClick,
+        children,
+        className
+    }: {
+        isActive?: boolean;
+        onClick: () => void;
+        children: React.ReactNode;
+        className?: string;
+    }) => (
+        <Button
+            size="sm"
+            variant="ghost"
+            type="button"
+            onClick={onClick}
+            className={cn(
+                "h-8 w-8 p-0 rounded-lg transition-all",
+                isActive
+                    ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                className
+            )}
+        >
+            {children}
+        </Button>
+    );
+
+    const Separator = () => (
+        <div className="w-px h-5 bg-gray-200 mx-1" />
+    );
+
     return (
-        <Card className="border">
+        <Card className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow bg-white">
             {/* Toolbar */}
-            <div className="border-b bg-muted/30 p-2 flex flex-wrap gap-1">
-                <Button
-                    size="sm"
-                    variant={editor.isActive('bold') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleBold().run()}
-                >
-                    <Bold className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('italic') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleItalic().run()}
-                >
-                    <Italic className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('strike') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleStrike().run()}
-                >
-                    <Strikethrough className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('code') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleCode().run()}
-                >
-                    <Code className="h-4 w-4" />
-                </Button>
+            <div className="border-b border-gray-100 bg-gray-50/50 p-2 flex flex-wrap items-center gap-1 sticky top-0 z-10">
+                <div className="flex items-center gap-0.5">
+                    <ToolbarButton
+                        isActive={editor.isActive('bold')}
+                        onClick={() => editor.chain().focus().toggleBold().run()}
+                    >
+                        <Bold className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('italic')}
+                        onClick={() => editor.chain().focus().toggleItalic().run()}
+                    >
+                        <Italic className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('strike')}
+                        onClick={() => editor.chain().focus().toggleStrike().run()}
+                    >
+                        <Strikethrough className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('code')}
+                        onClick={() => editor.chain().focus().toggleCode().run()}
+                    >
+                        <Code className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
 
-                <div className="w-px h-6 bg-border mx-1" />
+                <Separator />
 
-                <Button
-                    size="sm"
-                    variant={editor.isActive('heading', { level: 1 }) ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-                >
-                    <Heading1 className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('heading', { level: 2 }) ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-                >
-                    <Heading2 className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-0.5">
+                    <ToolbarButton
+                        isActive={editor.isActive('heading', { level: 1 })}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+                    >
+                        <Heading1 className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('heading', { level: 2 })}
+                        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+                    >
+                        <Heading2 className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
 
-                <div className="w-px h-6 bg-border mx-1" />
+                <Separator />
 
-                <Button
-                    size="sm"
-                    variant={editor.isActive('bulletList') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleBulletList().run()}
-                >
-                    <List className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('orderedList') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleOrderedList().run()}
-                >
-                    <ListOrdered className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant={editor.isActive('blockquote') ? 'default' : 'ghost'}
-                    onClick={() => editor.chain().focus().toggleBlockquote().run()}
-                >
-                    <Quote className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-0.5">
+                    <ToolbarButton
+                        isActive={editor.isActive('bulletList')}
+                        onClick={() => editor.chain().focus().toggleBulletList().run()}
+                    >
+                        <List className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('orderedList')}
+                        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+                    >
+                        <ListOrdered className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        isActive={editor.isActive('blockquote')}
+                        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+                    >
+                        <Quote className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
 
-                <div className="w-px h-6 bg-border mx-1" />
+                <Separator />
 
+                <div className="flex items-center gap-0.5">
+                    <ToolbarButton onClick={() => setLinkDialogOpen(true)}>
+                        <LinkIcon className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => setImageDialogOpen(true)}>
+                        <ImageIcon className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton onClick={() => setYoutubeDialogOpen(true)}>
+                        <YoutubeIcon className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
+
+                <Separator />
+
+                <div className="flex items-center gap-0.5">
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().undo().run()}
+                        className={!editor.can().undo() ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                        <Undo className="h-4 w-4" />
+                    </ToolbarButton>
+                    <ToolbarButton
+                        onClick={() => editor.chain().focus().redo().run()}
+                        className={!editor.can().redo() ? 'opacity-50 cursor-not-allowed' : ''}
+                    >
+                        <Redo className="h-4 w-4" />
+                    </ToolbarButton>
+                </div>
+
+                <div className="flex-1" />
+
+                {/* AI Assistant Button */}
                 <Button
                     size="sm"
                     variant="ghost"
-                    onClick={() => setLinkDialogOpen(true)}
+                    onClick={() => setAiModalOpen(true)}
+                    className="h-8 gap-2 px-3 text-purple-600 bg-purple-50 hover:bg-purple-100 hover:text-purple-700 rounded-full border border-purple-100 transition-all shadow-sm hover:shadow"
                 >
-                    <LinkIcon className="h-4 w-4" />
+                    <Sparkles className="h-4 w-4" />
+                    <span className="text-xs font-medium">AI Agent</span>
                 </Button>
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setImageDialogOpen(true)}
-                >
-                    <ImageIcon className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setYoutubeDialogOpen(true)}
-                >
-                    <YoutubeIcon className="h-4 w-4" />
-                </Button>
-
-                <div className="w-px h-6 bg-border mx-1" />
-
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => editor.chain().focus().undo().run()}
-                    disabled={!editor.can().undo()}
-                >
-                    <Undo className="h-4 w-4" />
-                </Button>
-                <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => editor.chain().focus().redo().run()}
-                    disabled={!editor.can().redo()}
-                >
-                    <Redo className="h-4 w-4" />
-                </Button>
-
-                <div className="w-px h-6 bg-border mx-1" />
-
-                <AiAssistantButton
-                    onGenerate={(text) => editor.chain().focus().insertContent(text).run()}
-                />
             </div>
 
             {/* Editor Content */}
-            <EditorContent editor={editor} className="min-h-[200px]" />
+            <div className="max-h-[600px] overflow-y-auto">
+                <EditorContent editor={editor} className="min-h-[250px] bg-white text-base" />
+            </div>
 
             {/* Link Dialog */}
             <Dialog open={linkDialogOpen} onOpenChange={setLinkDialogOpen}>
-                <DialogContent>
+                <DialogContent className="rounded-2xl">
                     <DialogHeader>
                         <DialogTitle>Insert Link</DialogTitle>
                     </DialogHeader>
@@ -239,21 +296,22 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
                                 onChange={(e) => setLinkUrl(e.target.value)}
                                 placeholder="https://example.com"
                                 onKeyDown={(e) => e.key === 'Enter' && addLink()}
+                                className="rounded-xl"
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setLinkDialogOpen(false)}>
+                        <Button variant="outline" onClick={() => setLinkDialogOpen(false)} className="rounded-xl">
                             Cancel
                         </Button>
-                        <Button onClick={addLink}>Insert Link</Button>
+                        <Button onClick={addLink} className="rounded-xl">Insert Link</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Image Dialog */}
             <Dialog open={imageDialogOpen} onOpenChange={setImageDialogOpen}>
-                <DialogContent>
+                <DialogContent className="rounded-2xl">
                     <DialogHeader>
                         <DialogTitle>Insert Image</DialogTitle>
                     </DialogHeader>
@@ -265,21 +323,22 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
                                 onChange={(e) => setImageUrl(e.target.value)}
                                 placeholder="https://example.com/image.jpg"
                                 onKeyDown={(e) => e.key === 'Enter' && addImage()}
+                                className="rounded-xl"
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setImageDialogOpen(false)}>
+                        <Button variant="outline" onClick={() => setImageDialogOpen(false)} className="rounded-xl">
                             Cancel
                         </Button>
-                        <Button onClick={addImage}>Insert Image</Button>
+                        <Button onClick={addImage} className="rounded-xl">Insert Image</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* YouTube Dialog */}
             <Dialog open={youtubeDialogOpen} onOpenChange={setYoutubeDialogOpen}>
-                <DialogContent>
+                <DialogContent className="rounded-2xl">
                     <DialogHeader>
                         <DialogTitle>Embed YouTube Video</DialogTitle>
                     </DialogHeader>
@@ -291,17 +350,25 @@ export function RichTextEditor({ content, onChange, placeholder }: RichTextEdito
                                 onChange={(e) => setYoutubeUrl(e.target.value)}
                                 placeholder="https://www.youtube.com/watch?v=..."
                                 onKeyDown={(e) => e.key === 'Enter' && addYoutube()}
+                                className="rounded-xl"
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setYoutubeDialogOpen(false)}>
+                        <Button variant="outline" onClick={() => setYoutubeDialogOpen(false)} className="rounded-xl">
                             Cancel
                         </Button>
-                        <Button onClick={addYoutube}>Embed Video</Button>
+                        <Button onClick={addYoutube} className="rounded-xl">Embed Video</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* AI Generator Modal */}
+            <AiContentGeneratorModal
+                open={aiModalOpen}
+                onOpenChange={setAiModalOpen}
+                onGenerate={(text) => editor.chain().focus().insertContent(text).run()}
+            />
         </Card>
     );
 }

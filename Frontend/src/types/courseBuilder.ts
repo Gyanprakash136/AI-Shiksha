@@ -79,6 +79,7 @@ export interface SectionItem {
 
     // Relations (only one will be populated based on type)
     lecture_content?: LectureContent;
+    quiz_id?: string;
     quiz?: Quiz;
     assignment?: Assignment;
 
@@ -133,22 +134,21 @@ export interface Quiz {
 
 // Quiz Question
 export interface QuizQuestion {
-    id: string;
-    quiz_id: string;
+    id?: string;
+    quiz_id?: string;
     type: QuizQuestionType;
     question_text: string;
     question_image_url?: string;
     points: number;
     order_index: number;
-
-    options?: string[]; // JSON array
+    set_number?: number; // Added set_number
+    options?: string[]; // JSON array for frontend
     correct_answers?: any[]; // JSON array
-
+    correct_answer?: any; // Helper for single answer questions
     explanation?: string;
     code_template?: string;
-
-    created_at: Date;
-    updated_at: Date;
+    created_at?: string;
+    updated_at?: string;
 }
 
 // Quiz Submission
@@ -258,6 +258,7 @@ export interface CreateSectionItemDTO {
     duration_minutes?: number;
     is_preview?: boolean;
     is_mandatory?: boolean;
+    quiz_id?: string;
 }
 
 export interface CreateLectureContentDTO {

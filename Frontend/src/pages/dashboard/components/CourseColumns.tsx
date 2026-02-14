@@ -119,10 +119,10 @@ export const createCourseColumns = ({ onDelete }: CourseColumnsProps): ColumnDef
                                 <Edit className="mr-2 h-4 w-4" /> Edit Details
                             </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link to={`/course/${course.id}`} target="_blank">
-                                <Eye className="mr-2 h-4 w-4" /> View Public Page
-                            </Link>
+                        <DropdownMenuItem
+                            onClick={() => window.open(`/courses/${course.slug || course.id}`, '_blank')}
+                        >
+                            <Eye className="mr-2 h-4 w-4" /> View Public Page
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem

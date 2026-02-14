@@ -101,6 +101,7 @@ const adminNavItems: NavItem[] = [
     label: "Course Management",
     children: [
       { icon: BookOpen, label: "All Courses", href: "/dashboard/courses" },
+      { icon: HelpCircle, label: "Quizzes", href: "/dashboard/quizzes" },
       { icon: Plus, label: "Add Course", href: "/dashboard/courses/new" },
       { icon: Folder, label: "Categories", href: "/dashboard/categories" },
       { icon: UserCog, label: "Enrollment", href: "/dashboard/enrollment" },

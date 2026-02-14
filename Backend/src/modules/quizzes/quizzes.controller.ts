@@ -23,33 +23,45 @@ import {
   SubmitQuizDto,
 } from '../courses/dto/quiz.dto';
 
-@Controller()
+@Controller('quizzes')
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class QuizzesController {
-  constructor(private quizzesService: QuizzesService) {}
+  constructor(private quizzesService: QuizzesService) { }
 
   // ========== QUIZ CRUD ==========
 
-  @Post('items/:itemId/quiz')
+  @Post()
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
-  createQuiz(@Param('itemId') itemId: string, @Body() dto: CreateQuizDto) {
-    return this.quizzesService.createQuiz(itemId, dto);
+  createQuiz(@Body() dto: CreateQuizDto) {
+    return this.quizzesService.createQuiz(dto);
   }
 
-  @Patch('quizzes/:quizId')
+  @Get()
+  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  findAll() {
+    return this.quizzesService.findAll();
+  }
+
+  @Get(':quizId')
+  getQuiz(@Param('quizId') quizId: string) {
+    return this.quizzesService.getQuiz(quizId);
+  }
+
+  @Patch(':quizId')
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   updateQuiz(@Param('quizId') quizId: string, @Body() dto: UpdateQuizDto) {
     return this.quizzesService.updateQuiz(quizId, dto);
   }
 
-  @Get('quizzes/:quizId')
-  getQuiz(@Param('quizId') quizId: string) {
-    return this.quizzesService.getQuiz(quizId);
+  @Delete(':quizId')
+  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  deleteQuiz(@Param('quizId') quizId: string) {
+    return this.quizzesService.deleteQuiz(quizId);
   }
 
   // ========== QUESTION CRUD ==========
 
-  @Post('quizzes/:quizId/questions')
+  @Post(':quizId/questions')
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   addQuestion(
     @Param('quizId') quizId: string,
@@ -58,8 +70,12 @@ export class QuizzesController {
     return this.quizzesService.addQuestion(quizId, dto);
   }
 
-  @Patch('questions/:questionId')
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Patch('../questions/:questionId')
+  // NOTE: This route is weird if we prefix controller with 'quizzes'. 
+  // But strictly RESTful it should be /questions/:id if it is global, but here questions belong to quiz.
+  // Ideally, PUT /quizzes/:id/questions/:qid.
+  // For now keeping simple as previous: /quizzes/questions/:id or just handle global question update
+  // Let's use a specific route for question updates to avoid conflict.
   updateQuestion(
     @Param('questionId') questionId: string,
     @Body() dto: UpdateQuizQuestionDto,
@@ -67,13 +83,29 @@ export class QuizzesController {
     return this.quizzesService.updateQuestion(questionId, dto);
   }
 
-  @Delete('questions/:questionId')
+  // Actually, let's fix the route decorator to be absolute or relative correctly.
+  // If controller is @Controller('quizzes'), then @Patch('../questions/:id') works relative to module root?? No.
+  // NestJS routers are simple.
+  // Let's expose question management under /questions separately if needed, or use full quiz update.
+  // But since UI might update single question, let's keep it.
+  // Cleaner: PUT /quizzes/:qid/questions/:qId
+
+  @Patch(':quizId/questions/:questionId')
+  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  updateQuestionInQuiz(
+    @Param('questionId') questionId: string,
+    @Body() dto: UpdateQuizQuestionDto
+  ) {
+    return this.quizzesService.updateQuestion(questionId, dto);
+  }
+
+  @Delete(':quizId/questions/:questionId')
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   deleteQuestion(@Param('questionId') questionId: string) {
     return this.quizzesService.deleteQuestion(questionId);
   }
 
-  @Post('quizzes/:quizId/questions/reorder')
+  @Post(':quizId/questions/reorder')
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   reorderQuestions(@Body() dto: ReorderQuestionsDto) {
     return this.quizzesService.reorderQuestions(dto);
@@ -81,7 +113,7 @@ export class QuizzesController {
 
   // ========== QUIZ SUBMISSION ==========
 
-  @Post('quizzes/:quizId/submit')
+  @Post(':quizId/submit')
   @Roles(Role.STUDENT)
   submitQuiz(
     @Request() req,
@@ -91,13 +123,13 @@ export class QuizzesController {
     return this.quizzesService.submitQuiz(quizId, req.user.userId, dto);
   }
 
-  @Get('quizzes/:quizId/submissions')
+  @Get(':quizId/submissions')
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   getSubmissions(@Param('quizId') quizId: string) {
     return this.quizzesService.getSubmissions(quizId);
   }
 
-  @Get('quizzes/:quizId/my-submissions')
+  @Get(':quizId/my-submissions')
   @Roles(Role.STUDENT)
   getMySubmissions(@Request() req, @Param('quizId') quizId: string) {
     return this.quizzesService.getSubmissions(quizId, req.user.userId);

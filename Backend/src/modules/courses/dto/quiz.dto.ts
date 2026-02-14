@@ -13,7 +13,15 @@ import {
 import { Type } from 'class-transformer';
 
 // Quiz DTOs
+// Quiz DTOs
 export class CreateQuizDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
   @IsInt()
   @Min(0)
   @Max(100)
@@ -41,9 +49,33 @@ export class CreateQuizDto {
   @IsBoolean()
   @IsOptional()
   auto_grade?: boolean;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  total_sets?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  questions_per_set?: number;
+
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuizQuestionDto)
+  questions?: CreateQuizQuestionDto[];
 }
 
 export class UpdateQuizDto {
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsOptional()
+  description?: string;
+
   @IsInt()
   @Min(0)
   @Max(100)
@@ -71,6 +103,22 @@ export class UpdateQuizDto {
   @IsBoolean()
   @IsOptional()
   auto_grade?: boolean;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  total_sets?: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  questions_per_set?: number;
+
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => CreateQuizQuestionDto)
+  questions?: CreateQuizQuestionDto[];
 }
 
 // Quiz Question DTOs
@@ -94,6 +142,11 @@ export class CreateQuizQuestionDto {
   @IsInt()
   @Min(0)
   order_index: number;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  set_number?: number;
 
   @IsArray()
   @IsOptional()

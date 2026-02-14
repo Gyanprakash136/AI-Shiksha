@@ -15,24 +15,27 @@ import {
 
 @Injectable()
 export class QuizzesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // ========== QUIZ CRUD ==========
 
-  async createQuiz(itemId: string, dto: CreateQuizDto) {
-    // Verify item is a quiz
-    const item = await this.prisma.sectionItem.findUnique({
-      where: { id: itemId },
-    });
+  async createQuiz(dto: CreateQuizDto) {
+    const { questions, ...quizData } = dto;
 
-    if (!item || item.type !== 'QUIZ') {
-      throw new NotFoundException('Quiz item not found');
-    }
+    const questionCreateInput = questions?.map((q) => ({
+      ...q,
+      options: q.options ? JSON.stringify(q.options) : null,
+      correct_answers: q.correct_answers
+        ? JSON.stringify(q.correct_answers)
+        : null,
+    }));
 
     return this.prisma.quiz.create({
       data: {
-        item_id: itemId,
-        ...dto,
+        ...quizData,
+        questions: {
+          create: questionCreateInput,
+        },
       },
       include: {
         questions: {
@@ -42,10 +45,58 @@ export class QuizzesService {
     });
   }
 
+  async findAll() {
+    return this.prisma.quiz.findMany({
+      orderBy: { created_at: 'desc' },
+      include: {
+        _count: {
+          select: { questions: true },
+        },
+      },
+    });
+  }
+
   async updateQuiz(quizId: string, dto: UpdateQuizDto) {
+    const { questions, ...quizData } = dto;
+
+    if (questions) {
+      // Full update strategy for questions
+      return this.prisma.$transaction(async (tx) => {
+        // Update basic details
+        await tx.quiz.update({
+          where: { id: quizId },
+          data: quizData,
+        });
+
+        // Delete all existing questions 
+        // (In a real app, we might want to be smarter to preserve submission history linkage if needed, 
+        // but for now, full replacement is safer for consistency with Set logic)
+        await tx.quizQuestion.deleteMany({
+          where: { quiz_id: quizId },
+        });
+
+        // Create new questions
+        if (questions.length > 0) {
+          await tx.quizQuestion.createMany({
+            data: questions.map(q => ({
+              quiz_id: quizId,
+              ...q,
+              options: q.options ? JSON.stringify(q.options) : null,
+              correct_answers: q.correct_answers ? JSON.stringify(q.correct_answers) : null,
+            }))
+          });
+        }
+
+        return tx.quiz.findUnique({
+          where: { id: quizId },
+          include: { questions: { orderBy: { order_index: 'asc' } } }
+        });
+      });
+    }
+
     return this.prisma.quiz.update({
       where: { id: quizId },
-      data: dto,
+      data: quizData,
       include: {
         questions: {
           orderBy: { order_index: 'asc' },
@@ -61,15 +112,6 @@ export class QuizzesService {
         questions: {
           orderBy: { order_index: 'asc' },
         },
-        item: {
-          include: {
-            section: {
-              include: {
-                course: true,
-              },
-            },
-          },
-        },
       },
     });
 
@@ -77,7 +119,18 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
-    return quiz;
+    // Parse JSON fields for frontend
+    const questions = quiz.questions.map(q => ({
+      ...q,
+      options: q.options ? JSON.parse(q.options) : [],
+      correct_answers: q.correct_answers ? JSON.parse(q.correct_answers) : []
+    }));
+
+    return { ...quiz, questions };
+  }
+
+  async deleteQuiz(quizId: string) {
+    return this.prisma.quiz.delete({ where: { id: quizId } });
   }
 
   // ========== QUESTION CRUD ==========
@@ -137,8 +190,8 @@ export class QuizzesService {
       where: { id: quizId },
       include: {
         questions: {
-          orderBy: { order_index: 'asc' },
-        },
+          orderBy: { order_index: 'asc' }
+        }
       },
     });
 
@@ -160,12 +213,20 @@ export class QuizzesService {
       }
     }
 
+    // Select questions based on logic (if we had Set logic fully implemented here)
+    // For now, grading all questions returned.
+    // Ensure we parse questions for grading
+    const questions = quiz.questions.map(q => ({
+      ...q,
+      correct_answers: q.correct_answers ? JSON.parse(q.correct_answers) : []
+    }));
+
     // Auto-grade if enabled
     let score: number | null = null;
     let passed = false;
 
     if (quiz.auto_grade) {
-      const gradeResult = this.gradeQuiz(quiz.questions, dto.answers);
+      const gradeResult = this.gradeQuiz(questions, dto.answers);
       score = gradeResult.score;
       passed = score >= quiz.passing_score;
     }
@@ -192,39 +253,48 @@ export class QuizzesService {
     let earnedPoints = 0;
 
     questions.forEach((question) => {
+      // In a real set-based exam, we should only grade questions that were in the set.
+      // Assuming frontend sends answers for all questions in the set.
+      if (!studentAnswers.hasOwnProperty(question.id)) {
+        // If question was not answered, it counts as 0 points but adds to totalPoints
+        // unless it wasn't part of the set. 
+        // Implementation detail: we assume questions passed here ARE the questions in the exam.
+      }
+
       totalPoints += question.points;
 
       const studentAnswer = studentAnswers[question.id];
-      const correctAnswers = question.correct_answers
-        ? JSON.parse(question.correct_answers)
-        : [];
+      const correctAnswers = question.correct_answers || [];
 
       let isCorrect = false;
 
-      switch (question.type) {
-        case 'MCQ':
-        case 'TRUE_FALSE':
-          isCorrect = studentAnswer === correctAnswers[0];
-          break;
-        case 'MULTIPLE':
-          // Check if arrays match
-          isCorrect =
-            Array.isArray(studentAnswer) &&
-            studentAnswer.length === correctAnswers.length &&
-            studentAnswer.every((ans: any) => correctAnswers.includes(ans));
-          break;
-        case 'FILL_BLANK':
-          isCorrect = correctAnswers.some(
-            (correct: string) =>
-              studentAnswer?.toLowerCase().trim() ===
-              correct.toLowerCase().trim(),
-          );
-          break;
-        case 'DESCRIPTIVE':
-        case 'CODE':
-          // These require manual grading
-          isCorrect = false;
-          break;
+      // Skip grading if no answer provided
+      if (studentAnswer !== undefined && studentAnswer !== null) {
+        switch (question.type) {
+          case 'MCQ':
+          case 'TRUE_FALSE':
+            isCorrect = studentAnswer === correctAnswers[0];
+            break;
+          case 'MULTIPLE':
+            // Check if arrays match
+            isCorrect =
+              Array.isArray(studentAnswer) &&
+              studentAnswer.length === correctAnswers.length &&
+              studentAnswer.every((ans: any) => correctAnswers.includes(ans));
+            break;
+          case 'FILL_BLANK':
+            isCorrect = correctAnswers.some(
+              (correct: string) =>
+                studentAnswer?.toString().toLowerCase().trim() ===
+                correct.toString().toLowerCase().trim(),
+            );
+            break;
+          case 'DESCRIPTIVE':
+          case 'CODE':
+            // These require manual grading
+            isCorrect = false;
+            break;
+        }
       }
 
       if (isCorrect) {

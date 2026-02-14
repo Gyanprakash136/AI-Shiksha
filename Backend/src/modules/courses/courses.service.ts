@@ -13,28 +13,30 @@ export class CoursesService {
   constructor(private prisma: PrismaService) { }
 
   async create(instructorUserId: string, createCourseDto: CreateCourseDto) {
+    // Override instructor if author_id is provided (e.g. by Admin)
+    const targetUserId = createCourseDto.author_id || instructorUserId;
+
     // Check if user has an instructor profile
     let instructor = await this.prisma.instructorProfile.findUnique({
-      where: { user_id: instructorUserId },
+      where: { user_id: targetUserId },
     });
 
     // If no instructor profile exists, check if user is admin and create one
     if (!instructor) {
       const user = await this.prisma.user.findUnique({
-        where: { id: instructorUserId },
+        where: { id: targetUserId },
       });
 
       if (!user) {
         throw new BadRequestException('User not found');
       }
 
-      // If user is admin, auto-create instructor profile
-      if (user.role === 'ADMIN') {
+      if (user.role === 'ADMIN' || user.role === 'INSTRUCTOR') {
         instructor = await this.prisma.instructorProfile.create({
           data: {
-            user_id: instructorUserId,
-            headline: 'Administrator',
-            description: 'Platform Administrator',
+            user_id: targetUserId,
+            headline: user.role === 'ADMIN' ? 'Administrator' : 'Instructor',
+            description: user.role === 'ADMIN' ? 'Platform Administrator' : 'Course Instructor',
           },
         });
       } else {
@@ -47,6 +49,7 @@ export class CoursesService {
       category_id,
       tag_ids,
       prerequisite_course_ids,
+      author_id, // Extract to remove from courseData
       ...courseData
     } = createCourseDto;
 
@@ -105,7 +108,7 @@ export class CoursesService {
   }
 
   async findAll(adminRequest: boolean = false) {
-    const whereClause: any = adminRequest ? {} : { status: 'published' };
+    const whereClause: any = adminRequest ? {} : { status: 'PUBLISHED' };
 
     const courses = await this.prisma.course.findMany({
       where: whereClause,
@@ -135,6 +138,7 @@ export class CoursesService {
     return (courses as any[]).map((course) => ({
       id: course.id,
       title: course.title,
+      slug: course.slug,
       thumbnail: course.thumbnail_url,
       status: course.status,
       students: course._count.enrollments,
@@ -187,6 +191,7 @@ export class CoursesService {
     return (courses as any[]).map((course) => ({
       id: course.id,
       title: course.title,
+      slug: course.slug,
       thumbnail: course.thumbnail_url,
       status: course.status,
       students: course._count.enrollments,
@@ -205,16 +210,78 @@ export class CoursesService {
       where: { id },
       include: {
         instructor: { include: { user: true } },
-        modules: {
+        category: true,
+        tags: { include: { tag: true } },
+        sections: {
           include: {
-            lessons: true,
+            items: {
+              include: {
+                lecture_content: true, // Include content to get content_type for icons
+              },
+              orderBy: { order_index: 'asc' },
+            },
           },
-          orderBy: { position: 'asc' },
+          orderBy: { order_index: 'asc' },
+        },
+        reviews: {
+          include: {
+            user: true,
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+            reviews: true,
+          },
         },
       },
     });
 
     if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    return course;
+  }
+
+  async findBySlug(slug: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { slug },
+      include: {
+        instructor: { include: { user: true } },
+        category: true,
+        tags: { include: { tag: true } },
+        sections: {
+          include: {
+            items: {
+              include: {
+                lecture_content: true,
+              },
+              orderBy: { order_index: 'asc' },
+            },
+          },
+          orderBy: { order_index: 'asc' },
+        },
+        reviews: {
+          include: {
+            user: true,
+          },
+        },
+        _count: {
+          select: {
+            enrollments: true,
+            reviews: true,
+          },
+        },
+      },
+    });
+
+    if (!course) {
+      throw new NotFoundException('Course not found');
+    }
+
+    // Only return published courses for public access
+    if (course.status !== 'PUBLISHED') {
       throw new NotFoundException('Course not found');
     }
 
@@ -239,8 +306,34 @@ export class CoursesService {
       throw new BadRequestException('You do not own this course'); // Or ForbiddenException
     }
 
-    const { modules, prerequisite_course_ids, tag_ids, ...courseData } =
+    const { modules, prerequisite_course_ids, tag_ids, author_id, ...courseData } =
       updateCourseDto;
+
+    // Handle Author Change (Admin Only or specific logic)
+    let newInstructorId: string | undefined = undefined;
+    if (author_id) {
+      // Check if target user has instructor profile
+      let targetInstructor = await this.prisma.instructorProfile.findUnique({
+        where: { user_id: author_id },
+      });
+
+      if (!targetInstructor) {
+        // Auto-create if not exists (similar to create logic)
+        const user = await this.prisma.user.findUnique({ where: { id: author_id } });
+        if (user && (user.role === 'ADMIN' || user.role === 'INSTRUCTOR')) {
+          targetInstructor = await this.prisma.instructorProfile.create({
+            data: {
+              user_id: author_id,
+              headline: user.role === 'ADMIN' ? 'Administrator' : 'Instructor',
+              description: 'Course Instructor',
+            }
+          });
+        }
+      }
+      if (targetInstructor) {
+        newInstructorId = targetInstructor.id;
+      }
+    }
 
     return this.prisma.$transaction(async (prisma: any) => {
       // 1. Update course details
@@ -248,6 +341,7 @@ export class CoursesService {
         where: { id },
         data: {
           ...courseData,
+          instructor_id: newInstructorId, // Update instructor if changed
           // Handle Tags Update
           tags: tag_ids
             ? {

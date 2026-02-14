@@ -20,7 +20,7 @@ import { Role } from '../../enums/role.enum';
 @ApiTags('Enrollments')
 @Controller('enrollments')
 export class EnrollmentsController {
-  constructor(private readonly enrollmentsService: EnrollmentsService) {}
+  constructor(private readonly enrollmentsService: EnrollmentsService) { }
 
   // Student endpoints
   @Get('my')
@@ -78,6 +78,18 @@ export class EnrollmentsController {
     return this.enrollmentsService.adminEnroll(studentEmail, courseId);
   }
 
+  @Post('admin/bulk-enroll')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Bulk enroll students in courses (Admin only)' })
+  bulkEnroll(
+    @Body('studentIds') studentIds: string[],
+    @Body('courseIds') courseIds: string[],
+  ) {
+    return this.enrollmentsService.bulkEnroll(studentIds, courseIds);
+  }
+
   @Patch(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.ADMIN)
@@ -94,5 +106,49 @@ export class EnrollmentsController {
   @ApiOperation({ summary: 'Delete enrollment (Admin only)' })
   remove(@Param('id') id: string) {
     return this.enrollmentsService.remove(id);
+  }
+
+  // Course completion management endpoints
+  // IMPORTANT: These specific routes must come BEFORE parameterized routes
+  @Get('course/:courseId/students')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN, Role.INSTRUCTOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all students enrolled in a course with progress (Admin/Instructor only)' })
+  getCourseStudents(@Param('courseId') courseId: string) {
+    return this.enrollmentsService.getCourseStudents(courseId);
+  }
+
+  @Post('bulk-complete')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Mark multiple enrollments as complete (Admin only)' })
+  bulkComplete(@Body() dto: any) {
+    return this.enrollmentsService.bulkComplete(dto);
+  }
+
+  @Post(':enrollmentId/complete')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Manually mark an enrollment as complete (Admin only)' })
+  manualComplete(
+    @Param('enrollmentId') enrollmentId: string,
+    @Body() dto: any,
+  ) {
+    return this.enrollmentsService.manualComplete(enrollmentId, dto);
+  }
+
+  @Patch(':enrollmentId/completion-date')
+  @UseGuards(AuthGuard('jwt'), RolesGuard)
+  @Roles(Role.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update completion date for an enrollment (Admin only)' })
+  updateCompletionDate(
+    @Param('enrollmentId') enrollmentId: string,
+    @Body() dto: any,
+  ) {
+    return this.enrollmentsService.updateCompletionDate(enrollmentId, dto);
   }
 }

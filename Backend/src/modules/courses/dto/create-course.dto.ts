@@ -29,6 +29,10 @@ export class CreateCourseDto {
   @IsOptional()
   description?: string;
 
+  @IsArray()
+  @IsOptional()
+  learning_outcomes?: string[];
+
   @IsString()
   @IsOptional()
   thumbnail_url?: string;
@@ -127,6 +131,23 @@ export class CreateCourseDto {
   @IsOptional()
   @IsString()
   meta_keywords?: string;
+
+  // Course Features - customizable features for "This course includes" section
+  @IsOptional()
+  course_features?: {
+    downloadable_resources?: boolean;
+    lifetime_access?: boolean;
+    mobile_tv_access?: boolean;
+    assignments?: boolean;
+    quizzes?: boolean;
+    coding_exercises?: boolean;
+    articles?: boolean;
+    discussion_forum?: boolean;
+  };
+
+  @IsString()
+  @IsOptional()
+  author_id?: string; // Optional override for course author (Admin only)
 
   // Legacy modules support (kept for backward compatibility)
   @IsOptional()

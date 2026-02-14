@@ -13,8 +13,13 @@ api.interceptors.request.use((config) => {
 });
 
 export const Courses = {
-    getAll: async (params?: any) => {
-        const { data } = await api.get("/courses", { params });
+    getAll: async (includeUnpublished: boolean = false) => {
+        const endpoint = includeUnpublished ? '/courses/admin/all' : '/courses';
+        const { data } = await api.get(endpoint);
+        return data;
+    },
+    getBySlug: async (slug: string) => {
+        const { data } = await api.get(`/courses/slug/${slug}`);
         return data;
     },
     getOne: async (id: string) => {
@@ -29,12 +34,39 @@ export const Courses = {
         const { data } = await api.patch(`/courses/${id}`, courseData);
         return data;
     },
+    publish: async (id: string) => {
+        const { data } = await api.post(`/courses/${id}/publish`);
+        return data;
+    },
     getMyCourses: async () => {
         const { data } = await api.get("/courses/my");
         return data;
     },
     delete: async (id: string) => {
         const { data } = await api.delete(`/courses/${id}`);
+        return data;
+    },
+};
+
+export const Cart = {
+    get: async () => {
+        const { data } = await api.get('/cart');
+        return data;
+    },
+    add: async (courseId: string) => {
+        const { data } = await api.post('/cart/add', { course_id: courseId });
+        return data;
+    },
+    remove: async (courseId: string) => {
+        const { data } = await api.delete(`/cart/${courseId}`);
+        return data;
+    },
+    clear: async () => {
+        const { data } = await api.delete('/cart');
+        return data;
+    },
+    getCount: async () => {
+        const { data } = await api.get('/cart/count');
         return data;
     },
 };
@@ -86,12 +118,40 @@ export const Enrollments = {
         const { data } = await api.post("/enrollments/admin/enroll", { studentEmail, courseId });
         return data;
     },
+    bulkEnroll: async (studentIds: string[], courseIds: string[]) => {
+        const { data } = await api.post("/enrollments/admin/bulk-enroll", { studentIds, courseIds });
+        return data;
+    },
     updateStatus: async (id: string, status: string) => {
         const { data } = await api.patch(`/enrollments/${id}/status`, { status });
         return data;
     },
     delete: async (id: string) => {
         const { data } = await api.delete(`/enrollments/${id}`);
+        return data;
+    },
+    // Course completion management
+    getCourseStudents: async (courseId: string) => {
+        const { data } = await api.get(`/enrollments/course/${courseId}/students`);
+        return data;
+    },
+    bulkComplete: async (enrollmentIds: string[], completionDate?: string) => {
+        const { data } = await api.post('/enrollments/bulk-complete', {
+            enrollment_ids: enrollmentIds,
+            completion_date: completionDate,
+        });
+        return data;
+    },
+    updateCompletionDate: async (enrollmentId: string, completionDate: string) => {
+        const { data } = await api.patch(`/enrollments/${enrollmentId}/completion-date`, {
+            completion_date: completionDate,
+        });
+        return data;
+    },
+    manualComplete: async (enrollmentId: string, completionDate?: string) => {
+        const { data } = await api.post(`/enrollments/${enrollmentId}/complete`, {
+            completion_date: completionDate,
+        });
         return data;
     },
 };
@@ -363,6 +423,19 @@ export const AI = {
                 });
             }, 1500);
         });
+    }
+};
+
+export const Uploads = {
+    upload: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await api.post('/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return data;
     }
 };
 

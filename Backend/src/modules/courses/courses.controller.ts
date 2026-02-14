@@ -62,6 +62,12 @@ export class CoursesController {
     return this.coursesService.findOne(id);
   }
 
+  @Get('slug/:slug')
+  @ApiOperation({ summary: 'Get course by slug (published only)' })
+  findBySlug(@Param('slug') slug: string) {
+    return this.coursesService.findBySlug(slug);
+  }
+
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
@@ -128,9 +134,9 @@ export class CoursesController {
 
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Direct publish (Admin only)' })
+  @ApiOperation({ summary: 'Publish course' })
   publishCourse(@Request() req, @Param('id') id: string) {
     return this.coursesService.publishCourse(id, req.user.userId);
   }

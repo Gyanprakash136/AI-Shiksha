@@ -38,6 +38,10 @@ export class CreateSectionItemDto {
   @IsBoolean()
   @IsOptional()
   is_mandatory?: boolean;
+
+  @IsString()
+  @IsOptional()
+  quiz_id?: string;
 }
 
 export class UpdateSectionItemDto {

@@ -203,6 +203,24 @@ export function useCourseBuilder(courseId: string) {
                 content = await LectureContent.create(itemId, contentData);
             }
 
+            // Optimistically update local state to avoid stale data
+            // We need to find the item and update its lecture_content
+            setSections((prevSections) => prevSections.map((section) => ({
+                ...section,
+                items: section.items?.map((item) => {
+                    if (item.id === itemId) {
+                        return {
+                            ...item,
+                            lecture_content: content
+                        };
+                    }
+                    return item;
+                })
+            })));
+
+            // Also refetch to be sure, but the local state update is immediate
+            await fetchSections();
+
             toast.success('Lecture content saved');
             return content;
         } catch (error: any) {
@@ -211,7 +229,7 @@ export function useCourseBuilder(courseId: string) {
         } finally {
             setSaving(false);
         }
-    }, []);
+    }, [courseId, fetchSections]);
 
     // ========== QUIZ OPERATIONS ==========
 

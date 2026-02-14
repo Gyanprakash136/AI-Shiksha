@@ -5,32 +5,73 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Award, Check, Loader2, LayoutTemplate, Type, Eye, Download } from 'lucide-react';
+import { Award, Check, Loader2, LayoutTemplate, Type, Eye, Download, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FloatingSaveBar } from './FloatingSaveBar';
 import { Badge } from '@/components/ui/badge';
+import { CertificateTemplates } from '@/lib/api';
+import { CertificateTemplateConfig } from '@/types/certificate';
+import { CertificateCanvas } from '@/components/certificates/builder/CertificateCanvas';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CertificateStepProps {
     courseId: string;
     initialData?: any;
     onSave: (data: any) => Promise<void>;
+    onBack?: () => void;
 }
 
-const TEMPLATES = [
-    { id: 'simple-classic', name: 'Simple Classic', bg: 'bg-white border-4 border-double border-gray-200', text: 'text-gray-900', font: 'serif' },
-    { id: 'modern-dark', name: 'Modern Dark', bg: 'bg-slate-900 text-white border border-slate-700', text: 'text-white', font: 'sans' },
-    { id: 'elegance-gold', name: 'Elegance Gold', bg: 'bg-[#fffbf0] border-8 border-[#d4af37]', text: 'text-slate-800', font: 'serif' },
-    { id: 'tech-blue', name: 'Tech Blue', bg: 'bg-blue-50 border-y-8 border-blue-600', text: 'text-blue-900', font: 'sans' },
-];
+interface CertificateTemplate {
+    id: string;
+    name: string;
+    description?: string;
+    is_default: boolean;
+    template_config: CertificateTemplateConfig;
+    preview_image_url?: string;
+}
 
-export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
+export function CertificateStep({ initialData, onSave, onBack }: CertificateStepProps) {
     const [enabled, setEnabled] = useState(initialData?.certificate_enabled || false);
-    const [selectedTemplateId, setSelectedTemplateId] = useState(initialData?.certificate_template_id || 'simple-classic');
+    const [selectedTemplateId, setSelectedTemplateId] = useState(initialData?.certificate_template_id || '');
     const [title, setTitle] = useState(initialData?.certificate_title || 'Certificate of Completion');
     const [description, setDescription] = useState(initialData?.certificate_description || 'This certifies that [Student Name] has successfully completed the course.');
     const [saving, setSaving] = useState(false);
 
-    const activeTemplate = TEMPLATES.find(t => t.id === selectedTemplateId) || TEMPLATES[0];
+    const [templates, setTemplates] = useState<CertificateTemplate[]>([]);
+    const [loadingTemplates, setLoadingTemplates] = useState(false);
+    const [templateError, setTemplateError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (enabled && templates.length === 0) {
+            loadTemplates();
+        }
+    }, [enabled]);
+
+    const loadTemplates = async () => {
+        try {
+            setLoadingTemplates(true);
+            const data = await CertificateTemplates.getAll();
+            // Ensure config matches type, or fallback (same protection as in admin page)
+            const safeData = data.map((t: any) => ({
+                ...t,
+                template_config: t.template_config?.elements ? t.template_config : null
+            })).filter((t: any) => t.template_config !== null);
+
+            setTemplates(safeData);
+
+            // If no template is selected but we have templates, select the default one or the first one
+            if (!selectedTemplateId && safeData.length > 0) {
+                const defaultTemplate = safeData.find((t: any) => t.is_default);
+                setSelectedTemplateId(defaultTemplate ? defaultTemplate.id : safeData[0].id);
+            }
+        } catch (error) {
+            console.error("Failed to load templates", error);
+            setTemplateError("Failed to load certificate templates. Please try again.");
+        } finally {
+            setLoadingTemplates(false);
+        }
+    };
 
     const handleSave = async () => {
         setSaving(true);
@@ -46,8 +87,10 @@ export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
         }
     };
 
+    const selectedTemplate = templates.find(t => t.id === selectedTemplateId);
+
     return (
-        <div className="space-y-8 max-w-6xl mx-auto">
+        <div className="space-y-8 max-w-6xl mx-auto pb-24">
 
             {/* Header / Toggle */}
             <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
@@ -75,12 +118,11 @@ export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
 
             {enabled && (
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-                    {/* Left Column: Editor */}
+                    {/* Left Column: Template Selection & Settings */}
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm h-full">
                             <CardHeader>
-                                <CardTitle className="text-lg">Customization</CardTitle>
+                                <CardTitle className="text-lg">Certificate Settings</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-6">
                                 <Tabs defaultValue="template" className="w-full">
@@ -90,53 +132,79 @@ export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
                                     </TabsList>
 
                                     <TabsContent value="template" className="mt-4 space-y-4">
-                                        <div className="grid grid-cols-1 gap-3">
-                                            {TEMPLATES.map((template) => (
-                                                <div
-                                                    key={template.id}
-                                                    onClick={() => setSelectedTemplateId(template.id)}
-                                                    className={cn(
-                                                        "flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all",
-                                                        selectedTemplateId === template.id
-                                                            ? "border-purple-600 bg-purple-50 ring-1 ring-purple-200"
-                                                            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                                                    )}
-                                                >
-                                                    <div className={cn("w-12 h-8 rounded border text-[6px] p-1 overflow-hidden", template.bg, template.text)}>
-                                                        <div className="w-full text-center font-bold">CERTIFICATE</div>
+                                        {loadingTemplates ? (
+                                            <div className="flex justify-center py-8">
+                                                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                            </div>
+                                        ) : templateError ? (
+                                            <Alert variant="destructive">
+                                                <AlertCircle className="h-4 w-4" />
+                                                <AlertTitle>Error</AlertTitle>
+                                                <AlertDescription>{templateError}</AlertDescription>
+                                            </Alert>
+                                        ) : templates.length === 0 ? (
+                                            <div className="text-center py-8 text-muted-foreground">
+                                                <p>No templates found.</p>
+                                                <p className="text-xs mt-1">Please ask an admin to create one.</p>
+                                            </div>
+                                        ) : (
+                                            <div className="grid grid-cols-1 gap-3 max-h-[500px] overflow-y-auto pr-2">
+                                                {templates.map((template) => (
+                                                    <div
+                                                        key={template.id}
+                                                        onClick={() => setSelectedTemplateId(template.id)}
+                                                        className={cn(
+                                                            "flex flex-col gap-2 p-3 rounded-lg border cursor-pointer transition-all hover:border-primary/50",
+                                                            selectedTemplateId === template.id
+                                                                ? "border-purple-600 bg-purple-50 ring-1 ring-purple-600"
+                                                                : "border-gray-200 bg-white hover:bg-gray-50"
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-medium text-sm">{template.name}</span>
+                                                            {template.is_default && <Badge variant="secondary" className="text-[10px] px-1 h-5">Default</Badge>}
+                                                        </div>
+                                                        {/* Mini Preview */}
+                                                        <div className="w-full aspect-[4/3] bg-gray-100 rounded overflow-hidden relative pointer-events-none border border-gray-100">
+                                                            <div className="origin-top-left transform scale-[0.25]" style={{ width: '400%', height: '400%' }}>
+                                                                <CertificateCanvas
+                                                                    config={template.template_config}
+                                                                    selectedElementId={null}
+                                                                    onSelectElement={() => { }}
+                                                                    onUpdateElement={() => { }}
+                                                                    zoom={1}
+                                                                />
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex-1">
-                                                        <div className="font-medium text-sm">{template.name}</div>
-                                                    </div>
-                                                    {selectedTemplateId === template.id && (
-                                                        <Check className="h-4 w-4 text-purple-600" />
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </TabsContent>
 
                                     <TabsContent value="content" className="mt-4 space-y-4">
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Heading</Label>
+                                            <Label>Certificate Title</Label>
                                             <Input
                                                 value={title}
                                                 onChange={(e) => setTitle(e.target.value)}
-                                                className="bg-white/70"
+                                                placeholder="e.g. Certificate of Achievement"
                                             />
+                                            <p className="text-xs text-muted-foreground">
+                                                Takes precedence if the template uses the <code>{'{certificate_title}'}</code> variable.
+                                            </p>
                                         </div>
                                         <div className="space-y-2">
-                                            <Label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Body Text</Label>
+                                            <Label>Description / Body</Label>
                                             <Textarea
                                                 value={description}
                                                 onChange={(e) => setDescription(e.target.value)}
-                                                className="h-32 bg-white/70 resize-none"
+                                                rows={4}
+                                                placeholder="Enter certificate body text..."
                                             />
-                                            <div className="flex flex-wrap gap-1 mt-2">
-                                                <Badge variant="outline" className="text-xs cursor-pointer hover:bg-gray-100" onClick={() => setDescription(d => d + ' [Student Name] ')}>[Student Name]</Badge>
-                                                <Badge variant="outline" className="text-xs cursor-pointer hover:bg-gray-100" onClick={() => setDescription(d => d + ' [Course Name] ')}>[Course Name]</Badge>
-                                                <Badge variant="outline" className="text-xs cursor-pointer hover:bg-gray-100" onClick={() => setDescription(d => d + ' [Date] ')}>[Date]</Badge>
-                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Takes precedence if the template uses the <code>{'{certificate_description}'}</code> variable.
+                                            </p>
                                         </div>
                                     </TabsContent>
                                 </Tabs>
@@ -148,56 +216,54 @@ export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
                     <div className="lg:col-span-8">
                         <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm sticky top-6">
                             <CardHeader className="flex flex-row items-center justify-between">
-                                <CardTitle className="flex items-center gap-2">
-                                    <Eye className="h-5 w-5 text-gray-500" /> Live Preview
-                                </CardTitle>
-                                <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground">
-                                    <Download className="h-3 w-3 mr-1" /> Download Sample
+                                <CardTitle className="text-lg">Preview</CardTitle>
+                                <Button variant="outline" size="sm" disabled>
+                                    <Download className="h-4 w-4 mr-2" />
+                                    Download Sample PDF
                                 </Button>
                             </CardHeader>
                             <CardContent>
-                                <div className="w-full aspect-[1.414/1] bg-gray-100 rounded-lg overflow-hidden shadow-inner flex items-center justify-center p-8">
-                                    {/* Certificate Canvas */}
-                                    <div className={cn(
-                                        "w-full h-full shadow-2xl flex flex-col items-center justify-center p-12 text-center relative",
-                                        activeTemplate.bg,
-                                        activeTemplate.text,
-                                        activeTemplate.font === 'serif' ? 'font-serif' : 'font-sans'
-                                    )}>
-                                        {/* Decorative Elements based on template */}
-                                        {activeTemplate.id === 'elegance-gold' && (
-                                            <div className="absolute inset-4 border border-[#d4af37] opacity-50" />
-                                        )}
-
-                                        <div className="space-y-2 mb-8">
-                                            <Award className={cn("mx-auto h-16 w-16 opacity-80 mb-4", activeTemplate.text)} />
-                                            <h1 className="text-4xl font-bold uppercase tracking-widest">{title}</h1>
-                                            <div className="w-24 h-1 bg-current mx-auto opacity-30 my-4" />
+                                <div className="w-full aspect-[1.414/1] bg-gray-100 rounded-lg border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden relative">
+                                    {loadingTemplates ? (
+                                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                                    ) : selectedTemplate ? (
+                                        <div className="transform scale-[0.75] origin-center shadow-xl">
+                                            <CertificateCanvas
+                                                config={{
+                                                    ...selectedTemplate.template_config,
+                                                    // Inject live values into placeholders for preview
+                                                    elements: selectedTemplate.template_config.elements.map(el => {
+                                                        if (el.type === 'variable') {
+                                                            let content = el.content;
+                                                            if (content === '{student_name}') content = 'John Doe';
+                                                            if (content === '{course_name}') content = 'Advanced React Development';
+                                                            if (content === '{instructor_name}') content = 'Jane Smith';
+                                                            if (content === '{completion_date}') content = new Date().toLocaleDateString();
+                                                            if (content === '{certificate_title}') content = title;
+                                                            if (content === '{certificate_description}') content = description;
+                                                            return { ...el, content };
+                                                        }
+                                                        return el;
+                                                    })
+                                                }}
+                                                selectedElementId={null}
+                                                onSelectElement={() => { }}
+                                                onUpdateElement={() => { }}
+                                                zoom={1}
+                                            />
                                         </div>
-
-                                        <div className="space-y-6 max-w-2xl">
-                                            <p className="text-lg opacity-80">PROUDLY PRESENTED TO</p>
-                                            <h2 className="text-5xl font-script italic py-4 text-purple-600 font-bold">John Doe</h2>
-                                            <p className="text-lg leading-relaxed opacity-90">
-                                                {description
-                                                    .replace('[Student Name]', 'John Doe')
-                                                    .replace('[Course Name]', 'Advanced React Patterns')
-                                                    .replace('[Date]', new Date().toLocaleDateString())
-                                                }
-                                            </p>
+                                    ) : (
+                                        <div className="text-center text-muted-foreground">
+                                            <LayoutTemplate className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                                            <p>Select a template to preview</p>
                                         </div>
-
-                                        <div className="mt-16 flex justify-between w-full px-16">
-                                            <div className="text-center">
-                                                <div className="border-b border-current w-48 mb-2 opacity-50" />
-                                                <p className="text-sm font-bold uppercase opacity-70">Instructor</p>
-                                            </div>
-                                            <div className="text-center">
-                                                <div className="border-b border-current w-48 mb-2 opacity-50" />
-                                                <p className="text-sm font-bold uppercase opacity-70">Date Issued</p>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    )}
+                                </div>
+                                <div className="mt-4 flex items-start gap-2 text-sm text-yellow-600 bg-yellow-50 p-3 rounded-md">
+                                    <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                                    <p>
+                                        This is a preview with sample data. Actual certificates will include the student's real name and completion date.
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -205,19 +271,13 @@ export function CertificateStep({ initialData, onSave }: CertificateStepProps) {
                 </div>
             )}
 
-            <div className="sticky bottom-0 -mx-4 md:-mx-6 -mb-6 p-4 md:p-6 bg-white/80 backdrop-blur-md border-t border-gray-100 flex justify-end gap-4 shadow-[0_-5px_20px_rgba(0,0,0,0.02)] z-20 mt-8">
-                <Button variant="outline" onClick={() => { }} className="rounded-xl border-gray-200 hover:bg-gray-50 text-gray-700">
-                    Cancel
-                </Button>
-                <Button
-                    onClick={handleSave}
-                    disabled={saving}
-                    className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-200 transition-all hover:shadow-blue-300 px-8"
-                >
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Save Certificate
-                </Button>
-            </div>
-        </div>
+            {/* Save Actions */}
+            <FloatingSaveBar
+                onSave={handleSave}
+                loading={saving}
+                onBack={onBack}
+            />
+            <div className="h-12" /> {/* Spacer */}
+        </div >
     );
 }

@@ -33,6 +33,7 @@ model User {
   certificates       Certificate[]
   ai_conversations   AIConversation[]
   approved_courses   Course[]           @relation("ApprovedCourses") // Courses this admin approved
+  cart_items         CartItem[]         // Shopping cart
 
   // Course Builder relations
   quiz_submissions       QuizSubmission[]
@@ -80,6 +81,7 @@ model Course {
   price    Float   @default(0)
   level    String? // Beginner, Intermediate, Advanced
   language String? @default("English")
+  learning_outcomes Json? // Array of learning outcomes
 
   // Approval Workflow
   status                    String    @default("DRAFT") // DRAFT, PENDING_APPROVAL, PUBLISHED, REJECTED
@@ -109,6 +111,7 @@ model Course {
   certificate_template_id String?
   certificate_title       String?
   certificate_description String?
+  course_features         Json?   // Customizable features: downloadable_resources, lifetime_access, mobile_access, etc.
 
   // SEO Settings
   meta_title       String?
@@ -131,6 +134,7 @@ model Course {
   tags             CourseTag[]
   prerequisites    CoursePrerequisite[] @relation("CoursePrerequisites")
   prerequisite_for CoursePrerequisite[] @relation("PrerequisiteFor")
+  cart_items       CartItem[]           // Shopping cart
 
   @@map("courses")
 }
@@ -205,14 +209,17 @@ model Lesson {
 }
 
 model Enrollment {
-  id          String   @id @default(uuid())
-  student_id  String
-  user        User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  course_id   String
-  course      Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  payment_id  String?  @unique
-  status      String   @default("active") // active, completed, cancelled
-  enrolled_at DateTime @default(now())
+  id                   String    @id @default(uuid())
+  student_id           String
+  user                 User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id            String
+  course               Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  payment_id           String?   @unique
+  status               String    @default("active") // active, completed, cancelled
+  enrolled_at          DateTime  @default(now())
+  progress_percentage  Int       @default(0) // 0-100
+  completed_at         DateTime? // When the course was completed
+  last_activity_at     DateTime? // Last time the student accessed the course
 
   @@unique([student_id, course_id])
   @@map("enrollments")
@@ -301,6 +308,18 @@ model Certificate {
 
   @@unique([student_id, course_id])
   @@map("certificates")
+}
+
+model CartItem {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  course_id  String
+  course     Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  created_at DateTime @default(now())
+
+  @@unique([user_id, course_id])
+  @@map("cart_items")
 }
 
 model CertificateTemplate {
@@ -399,7 +418,11 @@ model SectionItem {
   updated_at DateTime @updatedAt
 
   lecture_content LectureContent?
-  quiz            Quiz?
+  
+  // Quiz Relation (Refactored)
+  quiz_id         String?
+  quiz            Quiz?   @relation(fields: [quiz_id], references: [id])
+
   assignment      Assignment?
 
   @@map("section_items")
@@ -436,22 +459,28 @@ model LectureContent {
 }
 
 model Quiz {
-  id      String      @id @default(uuid())
-  item_id String      @unique
-  item    SectionItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
-
-  passing_score       Int     @default(70) // Percentage
+  id          String   @id @default(uuid())
+  title       String
+  description String?  @db.Text
+  
+  // Settings
+  passing_score       Int     @default(75) // Percentage (User requirement: 75%)
   time_limit_minutes  Int? // Optional time limit
-  attempts_allowed    Int     @default(0) // 0 = unlimited
+  attempts_allowed    Int     @default(3) // User requirement: 3 attempts
   randomize_questions Boolean @default(false)
   show_answers        Boolean @default(true) // Show correct answers after submission
   auto_grade          Boolean @default(true)
+  
+  // Set Logic
+  total_sets          Int     @default(1)
+  questions_per_set   Int     @default(10)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  questions   QuizQuestion[]
-  submissions QuizSubmission[]
+  questions     QuizQuestion[]
+  submissions   QuizSubmission[]
+  section_items SectionItem[]
 
   @@map("quizzes")
 }
@@ -466,6 +495,8 @@ model QuizQuestion {
   question_image_url String?
   points             Int     @default(1)
   order_index        Int
+  
+  set_number         Int     @default(1) // Which set this question belongs to
 
   // JSON arrays for options and answers
   options         String? @db.Text // JSON array ["Option A", "Option B", ...]

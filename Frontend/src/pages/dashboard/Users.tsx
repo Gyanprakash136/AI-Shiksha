@@ -72,13 +72,24 @@ export default function UsersPage() {
   });
   const { toast } = useToast();
 
-  // Fetch users based on active tab if it's a specific role, or all users
-  const roleFilter = activeTab === "all" ? undefined : activeTab;
-  const { users, isLoading } = useUsers(roleFilter);
+  // Fetch all users to ensure correct stats counts
+  const { users: allUsers = [], isLoading } = useUsers();
+
   const createUserMutation = useCreateUser();
   const deleteUserMutation = useDeleteUser();
 
-  const filteredUsers = users.filter((user) => {
+  // Filter users based on active tab
+  const tabFilteredUsers = allUsers.filter((user) => {
+    if (activeTab === 'all') return true;
+    const role = user.role.toLowerCase();
+    if (activeTab === 'student') return role === 'student';
+    if (activeTab === 'teacher') return role === 'teacher' || role === 'instructor';
+    if (activeTab === 'admin') return role === 'admin';
+    return false;
+  });
+
+  // Filter users based on search
+  const filteredUsers = tabFilteredUsers.filter((user) => {
     const matchesSearch =
       user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -239,9 +250,9 @@ export default function UsersPage() {
   };
 
   const stats = [
-    { label: "Total Users", value: users.length, icon: Users, color: "text-primary" },
-    { label: "Active", value: users.length, icon: UserCheck, color: "text-emerald-600" },
-    { label: "Teachers", value: users.filter((u) => u.role === "INSTRUCTOR" || u.role === "teacher").length, icon: Shield, color: "text-primary" },
+    { label: "Total Users", value: allUsers.length, icon: Users, color: "text-primary" },
+    { label: "Active", value: allUsers.length, icon: UserCheck, color: "text-emerald-600" },
+    { label: "Teachers", value: allUsers.filter((u) => u.role === "INSTRUCTOR" || u.role === "teacher").length, icon: Shield, color: "text-primary" },
     { label: "Suspended", value: 0, icon: UserX, color: "text-destructive" },
   ];
 
@@ -469,10 +480,10 @@ export default function UsersPage() {
         {/* Tabs and Table */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-muted/50">
-            <TabsTrigger value="all">All ({users.length})</TabsTrigger>
-            <TabsTrigger value="student">Students ({users.filter((u) => u.role === "STUDENT" || u.role === "student").length})</TabsTrigger>
-            <TabsTrigger value="teacher">Teachers ({users.filter((u) => u.role === "INSTRUCTOR" || u.role === "teacher").length})</TabsTrigger>
-            <TabsTrigger value="admin">Admins ({users.filter((u) => u.role === "ADMIN" || u.role === "admin").length})</TabsTrigger>
+            <TabsTrigger value="all">All ({allUsers.length})</TabsTrigger>
+            <TabsTrigger value="student">Students ({allUsers.filter((u) => u.role === "STUDENT" || u.role === "student").length})</TabsTrigger>
+            <TabsTrigger value="teacher">Teachers ({allUsers.filter((u) => u.role === "INSTRUCTOR" || u.role === "teacher").length})</TabsTrigger>
+            <TabsTrigger value="admin">Admins ({allUsers.filter((u) => u.role === "ADMIN" || u.role === "admin").length})</TabsTrigger>
           </TabsList>
 
           <TabsContent value={activeTab} className="mt-4">

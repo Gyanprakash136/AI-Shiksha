@@ -60,9 +60,17 @@ import CertificateTemplatesPage from "./pages/admin/CertificateTemplates";
 // Student Pages
 import MyCertificatesPage from "./pages/student/MyCertificates";
 
+// Quiz Pages
+import QuizManagement from "./pages/admin/QuizManagement";
+import QuizCreator from "./pages/admin/QuizCreator";
+
 // Course Pages
 import CourseDetailPage from "./pages/course/CourseDetail";
 import LessonPlayer from "./pages/learn/LessonPlayer";
+
+// Public Course Pages
+import PublicCourseCatalog from "./pages/PublicCourseCatalog";
+import PublicCourseView from "./pages/PublicCourseView";
 
 // Course Learning (legacy)
 import CourseLearn from "./pages/course/CourseLearn";
@@ -103,11 +111,19 @@ const App = () => (
               {/* Unified Dashboard - Main */}
               <Route path="/dashboard" element={<UnifiedDashboardPage />} />
 
+              {/* Unified Dashboard - Main */}
+              <Route path="/dashboard" element={<UnifiedDashboardPage />} />
+
+              // ...
+
               {/* Dashboard Sub-routes (shared + role-specific) */}
               <Route path="/dashboard/my-courses" element={<MyCourses />} />
               <Route path="/dashboard/courses" element={<CourseManagement />} />
               <Route path="/dashboard/courses/new" element={<CreateCourseRedirect />} />
               <Route path="/dashboard/courses/:courseId/edit" element={<CourseBuilder />} />
+              <Route path="/dashboard/quizzes" element={<QuizManagement />} />
+              <Route path="/dashboard/quizzes/new" element={<QuizCreator />} />
+              <Route path="/dashboard/quizzes/:id/edit" element={<QuizCreator />} />
               <Route path="/dashboard/analytics" element={<Analytics />} />
               <Route path="/dashboard/settings" element={<Settings />} />
               <Route path="/dashboard/messages" element={<Messages />} />
@@ -153,8 +169,12 @@ const App = () => (
               <Route path="/dashboard/certificate-templates" element={<CertificateTemplatesPage />} />
               <Route path="/dashboard/my-certificates" element={<MyCertificatesPage />} />
 
-              {/* Course Pages (Standalone) */}
-              <Route path="/course/:id" element={<CourseDetailPage />} />
+              {/* Public Course Pages */}
+              <Route path="/courses" element={<PublicCourseCatalog />} />
+              <Route path="/course/:slug" element={<PublicCourseView />} />
+
+              {/* Course Pages (Legacy - for instructor preview) */}
+              <Route path="/courses/:slug" element={<CoursePreview />} />
               <Route path="/learn/:courseId/lesson/:lessonId" element={<LessonPlayer />} />
 
               {/* E-commerce */}

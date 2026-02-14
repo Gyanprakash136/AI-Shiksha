@@ -16,7 +16,10 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { MultiSelect } from "@/components/ui/multi-select-custom";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Will verify if this exists, otherwise use div
+import { Search } from "lucide-react";
 
 interface EnrollmentStats {
   total: number;
@@ -55,6 +58,8 @@ export default function EnrollmentPage() {
   const [isEnrollOpen, setIsEnrollOpen] = useState(false);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [courseSearch, setCourseSearch] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -102,7 +107,7 @@ export default function EnrollmentPage() {
 
   const loadCourses = async () => {
     try {
-      const data = await Courses.getAll();
+      const data = await Courses.getAll(true); // Fetch all courses including unpublished
       setCourses(data);
     } catch (error) {
       console.error("Failed to load courses:", error);
@@ -165,24 +170,20 @@ export default function EnrollmentPage() {
 
     setIsSubmitting(true);
     try {
-      // Iterate over selected students and courses to enroll
-      // Note: In a real production app, backend should handle bulk enroll
-      const promises = [];
-      for (const studentId of selectedStudentIds) {
-        const student = students.find(s => s.id === studentId);
-        if (!student) continue;
+      const result = await Enrollments.bulkEnroll(selectedStudentIds, selectedCourseIds);
 
-        for (const courseId of selectedCourseIds) {
-          promises.push(Enrollments.adminEnroll(student.email, courseId));
-        }
-      }
+      const { success, alreadyEnrolled, failed } = result;
 
-      await Promise.all(promises);
+      let description = `Successfully enrolled ${success} students.`;
+      if (alreadyEnrolled > 0) description += ` ${alreadyEnrolled} were already enrolled.`;
+      if (failed > 0) description += ` ${failed} failed.`;
 
       toast({
-        title: "Success",
-        description: `Enrolled ${selectedStudentIds.length} students in ${selectedCourseIds.length} courses.`
+        title: failed > 0 ? "Enrollment Completed with Errors" : "Enrollment Successful",
+        description: description,
+        variant: failed > 0 ? "destructive" : "default"
       });
+
       setIsEnrollOpen(false);
       setSelectedStudentIds([]);
       setSelectedCourseIds([]);
@@ -196,6 +197,47 @@ export default function EnrollmentPage() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const toggleAllStudents = () => {
+    const visibleStudents = students.filter((s) =>
+      s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+      s.email.toLowerCase().includes(studentSearch.toLowerCase())
+    );
+
+    // Check if all visible students are currently selected
+    const allVisibleSelected = visibleStudents.every(s => selectedStudentIds.includes(s.id));
+
+    if (allVisibleSelected) {
+      // Deselect all visible students
+      setSelectedStudentIds(state => state.filter(id => !visibleStudents.find(s => s.id === id)));
+    } else {
+      // Select all visible students, adding to existing non-visible selection
+      const newIds = [...selectedStudentIds];
+      visibleStudents.forEach(s => {
+        if (!newIds.includes(s.id)) newIds.push(s.id);
+      });
+      setSelectedStudentIds(newIds);
+    }
+  };
+
+  const toggleAllCourses = () => {
+    const visibleCourses = courses.filter((c) => c.title.toLowerCase().includes(courseSearch.toLowerCase()));
+
+    // Check if all visible courses are currently selected
+    const allVisibleSelected = visibleCourses.every(c => selectedCourseIds.includes(c.id));
+
+    if (allVisibleSelected) {
+      // Deselect all visible courses
+      setSelectedCourseIds(state => state.filter(id => !visibleCourses.find(c => c.id === id)));
+    } else {
+      // Select all visible courses
+      const newIds = [...selectedCourseIds];
+      visibleCourses.forEach(c => {
+        if (!newIds.includes(c.id)) newIds.push(c.id);
+      });
+      setSelectedCourseIds(newIds);
     }
   };
 
@@ -265,28 +307,140 @@ export default function EnrollmentPage() {
                 <UserPlus className="h-4 w-4" /> Manual Enroll
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
+            <DialogContent className="sm:max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Manual Student Enrollment</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="grid gap-2">
-                  <Label>Select Students</Label>
-                  <MultiSelect
-                    options={students.map(s => ({ label: `${s.name} (${s.email})`, value: s.id }))}
-                    selected={selectedStudentIds}
-                    onChange={setSelectedStudentIds}
-                    placeholder="Search students..."
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label>Select Students</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleAllStudents}
+                      className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      {(() => {
+                        const visibleStudents = students.filter((s) =>
+                          s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+                          s.email.toLowerCase().includes(studentSearch.toLowerCase())
+                        );
+                        const allVisibleSelected = visibleStudents.length > 0 && visibleStudents.every(s => selectedStudentIds.includes(s.id));
+                        return allVisibleSelected ? 'Deselect All' : 'Select All';
+                      })()}
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    <div className="space-y-4">
+                      <div className="sticky top-0 bg-background pb-4 pt-0 z-10">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search students..."
+                            value={studentSearch}
+                            onChange={(e) => setStudentSearch(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {students
+                          .filter((s) =>
+                            s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+                            s.email.toLowerCase().includes(studentSearch.toLowerCase())
+                          )
+                          .map((student) => (
+                            <div key={student.id} className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md transition-colors">
+                              <Checkbox
+                                id={`student-${student.id}`}
+                                checked={selectedStudentIds.includes(student.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedStudentIds([...selectedStudentIds, student.id]);
+                                  } else {
+                                    setSelectedStudentIds(selectedStudentIds.filter((id) => id !== student.id));
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor={`student-${student.id}`}
+                                className="flex-1 cursor-pointer text-sm font-normal"
+                              >
+                                <span className="font-medium">{student.name}</span>
+                                <span className="text-muted-foreground ml-2 text-xs">({student.email})</span>
+                              </Label>
+                            </div>
+                          ))}
+                        {students.filter((s) =>
+                          s.name.toLowerCase().includes(studentSearch.toLowerCase()) ||
+                          s.email.toLowerCase().includes(studentSearch.toLowerCase())
+                        ).length === 0 && (
+                            <p className="text-sm text-center text-muted-foreground py-4">No students found</p>
+                          )}
+                      </div>
+                    </div>
+                  </ScrollArea>
                 </div>
                 <div className="grid gap-2">
-                  <Label>Select Courses</Label>
-                  <MultiSelect
-                    options={courses.map(c => ({ label: c.title, value: c.id }))}
-                    selected={selectedCourseIds}
-                    onChange={setSelectedCourseIds}
-                    placeholder="Search courses..."
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label>Select Courses</Label>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={toggleAllCourses}
+                      className="h-6 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      {(() => {
+                        const visibleCourses = courses.filter((c) => c.title.toLowerCase().includes(courseSearch.toLowerCase()));
+                        const allVisibleSelected = visibleCourses.length > 0 && visibleCourses.every(c => selectedCourseIds.includes(c.id));
+                        return allVisibleSelected ? 'Deselect All' : 'Select All';
+                      })()}
+                    </Button>
+                  </div>
+                  <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                    <div className="space-y-4">
+                      <div className="sticky top-0 bg-background pb-4 pt-0 z-10">
+                        <div className="relative">
+                          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                          <Input
+                            placeholder="Search courses..."
+                            value={courseSearch}
+                            onChange={(e) => setCourseSearch(e.target.value)}
+                            className="pl-9"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {courses
+                          .filter((c) => c.title.toLowerCase().includes(courseSearch.toLowerCase()))
+                          .map((course) => (
+                            <div key={course.id} className="flex items-center space-x-2 p-2 hover:bg-accent rounded-md transition-colors">
+                              <Checkbox
+                                id={`course-${course.id}`}
+                                checked={selectedCourseIds.includes(course.id)}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    setSelectedCourseIds([...selectedCourseIds, course.id]);
+                                  } else {
+                                    setSelectedCourseIds(selectedCourseIds.filter((id) => id !== course.id));
+                                  }
+                                }}
+                              />
+                              <Label
+                                htmlFor={`course-${course.id}`}
+                                className="flex-1 cursor-pointer text-sm font-normal"
+                              >
+                                {course.title}
+                              </Label>
+                            </div>
+                          ))}
+                        {courses.filter((c) => c.title.toLowerCase().includes(courseSearch.toLowerCase())).length === 0 && (
+                          <p className="text-sm text-center text-muted-foreground py-4">No courses found</p>
+                        )}
+                      </div>
+                    </div>
+                  </ScrollArea>
                 </div>
               </div>
               <DialogFooter>

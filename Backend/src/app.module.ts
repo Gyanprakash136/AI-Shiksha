@@ -15,6 +15,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CategoriesModule } from './modules/categories/categories.module';
 import { TagsModule } from './modules/tags/tags.module';
+import { CartModule } from './modules/cart/cart.module';
 // Course Builder Modules
 import { SectionsModule } from './modules/sections/sections.module';
 import { QuizzesModule } from './modules/quizzes/quizzes.module';
@@ -22,6 +23,7 @@ import { AssignmentsModule } from './modules/assignments/assignments.module';
 import { CompletionsModule } from './modules/completions/completions.module';
 
 import { CertificateTemplatesModule } from './modules/certificate-templates/certificate-templates.module';
+import { UploadModule } from './modules/upload/upload.module';
 
 @Module({
   imports: [
@@ -37,6 +39,7 @@ import { CertificateTemplatesModule } from './modules/certificate-templates/cert
     LessonsModule,
     EnrollmentsModule,
     PaymentsModule,
+    CartModule,
     AiModule,
     AdminModule,
     CategoriesModule,
@@ -46,7 +49,10 @@ import { CertificateTemplatesModule } from './modules/certificate-templates/cert
     QuizzesModule,
     AssignmentsModule,
     CompletionsModule,
+    AssignmentsModule,
+    CompletionsModule,
     CertificateTemplatesModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

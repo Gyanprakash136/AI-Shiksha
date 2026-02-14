@@ -39,8 +39,9 @@ interface QuizQuestion {
 
 interface QuizBuilderProps {
     quizId?: string;
-    initialQuestions?: QuizQuestion[];
-    onSave: (questions: QuizQuestion[]) => Promise<void>;
+    questions: QuizQuestion[];
+    onChange: (questions: QuizQuestion[]) => void;
+    onSave?: () => Promise<void>;
     saving?: boolean;
 }
 
@@ -53,8 +54,7 @@ const questionTypeConfig: Record<QuizQuestionType, { label: string; description:
     CODE: { label: 'Code Question', description: 'Programming question (manual grading)' },
 };
 
-export function QuizBuilder({ quizId, initialQuestions = [], onSave, saving }: QuizBuilderProps) {
-    const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
+export function QuizBuilder({ quizId, questions, onChange, onSave, saving }: QuizBuilderProps) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
     const addQuestion = (type: QuizQuestionType) => {
@@ -67,18 +67,18 @@ export function QuizBuilder({ quizId, initialQuestions = [], onSave, saving }: Q
             correct_answers: type === 'MULTIPLE' ? [] : undefined,
             order_index: questions.length,
         };
-        setQuestions([...questions, newQuestion]);
+        onChange([...questions, newQuestion]);
         setEditingIndex(questions.length);
     };
 
     const updateQuestion = (index: number, updates: Partial<QuizQuestion>) => {
         const updated = [...questions];
         updated[index] = { ...updated[index], ...updates };
-        setQuestions(updated);
+        onChange(updated);
     };
 
     const deleteQuestion = (index: number) => {
-        setQuestions(questions.filter((_, i) => i !== index));
+        onChange(questions.filter((_, i) => i !== index));
         setEditingIndex(null);
     };
 
@@ -124,7 +124,9 @@ export function QuizBuilder({ quizId, initialQuestions = [], onSave, saving }: Q
     };
 
     const handleSave = async () => {
-        await onSave(questions);
+        if (onSave) {
+            await onSave();
+        }
     };
 
     return (
@@ -137,19 +139,21 @@ export function QuizBuilder({ quizId, initialQuestions = [], onSave, saving }: Q
                         {questions.length} {questions.length === 1 ? 'question' : 'questions'}
                     </p>
                 </div>
-                <Button onClick={handleSave} disabled={saving || questions.length === 0}>
-                    {saving ? (
-                        <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Saving...
-                        </>
-                    ) : (
-                        <>
-                            <Save className="h-4 w-4 mr-2" />
-                            Save Quiz
-                        </>
-                    )}
-                </Button>
+                {onSave && (
+                    <Button onClick={handleSave} disabled={saving || questions.length === 0}>
+                        {saving ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="h-4 w-4 mr-2" />
+                                Save Quiz
+                            </>
+                        )}
+                    </Button>
+                )}
             </div>
 
             {/* Add Question Buttons */}

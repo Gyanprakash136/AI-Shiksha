@@ -40,25 +40,49 @@ export function CourseBuilderWizard() {
         }
     };
 
-    const handleSaveBasicInfo = async (data: any) => {
+    const handleSaveBasicInfo = async (data: any, shouldNavigate: boolean = false) => {
         try {
             await Courses.update(courseId!, data);
             setCourse({ ...course, ...data });
-            toast.success("Basic info saved");
+            toast.success(shouldNavigate ? "Basic info saved, proceeding..." : "Basic info saved");
+
+            if (shouldNavigate) {
+                setActiveTab('curriculum');
+            }
         } catch (error) {
             console.error(error);
             toast.error("Failed to save basic info");
         }
     };
 
-    const handleSaveSettings = async (data: any) => {
+    const handleSaveSettings = async (data: any, shouldNavigate: boolean = false) => {
         try {
-            await Courses.update(courseId!, data);
-            setCourse({ ...course, ...data });
-            toast.success("Settings saved");
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to save settings");
+            // Clean optional numeric fields - convert 0 to undefined
+            const cleanedData = {
+                ...data,
+                original_price: data.original_price || undefined,
+                discount_percentage: data.discount_percentage || undefined,
+                max_students: data.max_students || undefined,
+                // Convert empty strings to undefined for optional text fields
+                password: data.password?.trim() || undefined,
+                meta_title: data.meta_title?.trim() || undefined,
+                meta_description: data.meta_description?.trim() || undefined,
+                meta_keywords: data.meta_keywords?.trim() || undefined,
+                // Keep course_features as-is (it's an object with booleans)
+                course_features: data.course_features,
+            };
+
+            console.log('Saving course features:', cleanedData.course_features);
+            await Courses.update(courseId!, cleanedData);
+            setCourse({ ...course, ...cleanedData }); // Update local state with cleaned data
+            toast.success(shouldNavigate ? 'Settings saved, proceeding...' : 'Settings saved successfully');
+
+            if (shouldNavigate) {
+                setActiveTab('certificate');
+            }
+        } catch (error: any) {
+            console.error('Error saving settings:', error);
+            toast.error(error.response?.data?.message || 'Failed to save');
         }
     };
 
@@ -67,6 +91,13 @@ export function CourseBuilderWizard() {
             await Courses.update(courseId!, data);
             setCourse({ ...course, ...data });
             toast.success("Certificate settings saved");
+            // Trigger publish flow if user clicked "Save & Publish"
+            // We can ask for confirmation or just publish
+            if (canPublish()) {
+                handlePublish();
+            } else {
+                toast.warning("Course saved, but cannot be published yet. Please check all fields.");
+            }
         } catch (error) {
             console.error(error);
             toast.error("Failed to save certificate settings");
@@ -79,7 +110,9 @@ export function CourseBuilderWizard() {
             course.title &&
             course.description &&
             course.category_id &&
-            course.slug
+            course.slug &&
+            // Check if sections > 0? Maybe unrelated for now
+            true
         );
     };
 
@@ -91,7 +124,7 @@ export function CourseBuilderWizard() {
 
         setPublishing(true);
         try {
-            await Courses.update(courseId!, { status: 'PUBLISHED' });
+            await Courses.publish(courseId!);
             toast.success("Course published successfully!");
             navigate('/dashboard/courses');
         } catch (error: any) {
@@ -120,6 +153,8 @@ export function CourseBuilderWizard() {
                 title={course?.title || "Course Builder"}
                 onSave={handlePublish}
                 saving={publishing}
+                disabled={!canPublish()}
+                buttonText={course?.status === 'PUBLISHED' ? 'Update Course' : 'Publish Course'}
                 onBack={() => navigate('/instructor/courses')}
                 onPreview={() => window.open(`/courses/${course?.slug || courseId}`, '_blank')}
             >
@@ -158,19 +193,27 @@ export function CourseBuilderWizard() {
                             <BasicInfoStep
                                 courseId={courseId}
                                 initialData={course}
-                                onSave={handleSaveBasicInfo}
+                                onSave={(data) => handleSaveBasicInfo(data, false)}
+                                onSaveAndContinue={(data) => handleSaveBasicInfo(data, true)}
                             />
                         </TabsContent>
 
                         <TabsContent value="curriculum" className="m-0 outline-none">
-                            <CurriculumBuilder courseId={courseId} />
+                            <CurriculumBuilder
+                                courseId={courseId}
+                                onSave={() => { /* implicit save is handled within CurriculumBuilder, but we can trigger a refresh if needed */ }}
+                                onNext={() => setActiveTab('settings')}
+                                onBack={() => setActiveTab('basic')}
+                            />
                         </TabsContent>
 
                         <TabsContent value="settings" className="m-0 outline-none">
                             <SettingsStep
                                 courseId={courseId}
                                 initialData={course}
-                                onSave={handleSaveSettings}
+                                onSave={(data) => handleSaveSettings(data, false)}
+                                onSaveAndContinue={(data) => handleSaveSettings(data, true)}
+                                onBack={() => setActiveTab('curriculum')}
                             />
                         </TabsContent>
 
@@ -179,6 +222,7 @@ export function CourseBuilderWizard() {
                                 courseId={courseId}
                                 initialData={course}
                                 onSave={handleSaveCertificate}
+                                onBack={() => setActiveTab('settings')}
                             />
                         </TabsContent>
                     </div>

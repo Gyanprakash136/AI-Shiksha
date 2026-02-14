@@ -9,19 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
-    DialogFooter,
     DialogHeader,
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
 import {
     Plus,
     Award,
@@ -30,27 +21,82 @@ import {
     Star,
     Loader2,
     FileText,
+    Maximize2,
+    Save,
+    Undo2,
+    Redo2
 } from "lucide-react";
 import { CertificateTemplates } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CertificatePreview } from "@/components/certificates/CertificatePreview";
+import { useHistory } from "@/hooks/useHistory";
+import { CertificateTemplateConfig, CertificateElement } from "@/types/certificate";
+import { CertificateCanvas } from "@/components/certificates/builder/CertificateCanvas";
+import { CertificateToolbar } from "@/components/certificates/builder/CertificateToolbar";
 
 interface CertificateTemplate {
     id: string;
     name: string;
     description?: string;
     is_default: boolean;
-    template_config: any;
+    template_config: CertificateTemplateConfig;
     preview_image_url?: string;
     created_at: string;
-    creator?: {
-        name: string;
-        email: string;
-    };
     _count?: {
         courses: number;
     };
 }
+
+const DEFAULT_CONFIG: CertificateTemplateConfig = {
+    canvas: {
+        width: 800, // Standard landscape ratio roughly
+        height: 600,
+        backgroundColor: '#ffffff',
+        orientation: 'landscape',
+    },
+    elements: [
+        {
+            id: 'title',
+            type: 'text',
+            content: 'CERTIFICATE OF COMPLETION',
+            x: 400,
+            y: 100,
+            style: {
+                fontFamily: 'serif',
+                fontSize: 48,
+                fontWeight: 'bold',
+                textAlign: 'center',
+                color: '#1a1a1a',
+            }
+        },
+        {
+            id: 'subtitle',
+            type: 'text',
+            content: 'This is awarded to',
+            x: 400,
+            y: 180,
+            style: {
+                fontFamily: 'sans-serif',
+                fontSize: 18,
+                color: '#666666',
+                textAlign: 'center',
+            }
+        },
+        {
+            id: 'student-name',
+            type: 'variable',
+            content: '{student_name}',
+            x: 400,
+            y: 240,
+            style: {
+                fontFamily: 'serif',
+                fontSize: 36,
+                fontWeight: 'bold',
+                color: '#d4af37',
+                textAlign: 'center',
+            }
+        }
+    ]
+};
 
 export default function CertificateTemplatesPage() {
     const { toast } = useToast();
@@ -60,37 +106,75 @@ export default function CertificateTemplatesPage() {
     const [editingTemplate, setEditingTemplate] = useState<CertificateTemplate | null>(null);
     const [submitting, setSubmitting] = useState(false);
 
-    // Form state
-    const [formData, setFormData] = useState({
-        name: "",
-        description: "",
-        layout: "classic",
-        background_color: "#ffffff",
-        border_color: "#000000",
-        border_style: "double",
-        title_text: "Certificate of Completion",
-        title_font: "Georgia",
-        title_color: "#1a1a1a",
-        body_font: "Arial",
-        body_color: "#333333",
-        is_default: false,
-    });
+    // Builder State
+    const [name, setName] = useState("");
+    const [description, setDescription] = useState("");
+    const { state: config, setState: setConfig, undo, redo, canUndo, canRedo, reset: resetHistory } = useHistory<CertificateTemplateConfig>(DEFAULT_CONFIG);
+    const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
     useEffect(() => {
         loadTemplates();
     }, []);
 
+    // Keyboard shortcuts
+    useEffect(() => {
+        if (!dialogOpen) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            // Undo/Redo
+            if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+                e.preventDefault();
+                undo();
+            } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                e.preventDefault();
+                redo();
+            }
+            // Delete selected element
+            else if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedElementId && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    handleDeleteElement(selectedElementId);
+                }
+            }
+            // Arrow keys to nudge position
+            else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+                if (selectedElementId && document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                    e.preventDefault();
+                    const selectedElement = config.elements.find(el => el.id === selectedElementId);
+                    if (selectedElement) {
+                        const nudgeAmount = e.shiftKey ? 10 : 1;
+                        let deltaX = 0, deltaY = 0;
+                        if (e.key === 'ArrowLeft') deltaX = -nudgeAmount;
+                        if (e.key === 'ArrowRight') deltaX = nudgeAmount;
+                        if (e.key === 'ArrowUp') deltaY = -nudgeAmount;
+                        if (e.key === 'ArrowDown') deltaY = nudgeAmount;
+
+                        handleUpdateElement(selectedElementId, {
+                            x: selectedElement.x + deltaX,
+                            y: selectedElement.y + deltaY,
+                        });
+                    }
+                }
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [dialogOpen, selectedElementId, config.elements, undo, redo]);
+
     const loadTemplates = async () => {
         try {
             setLoading(true);
             const data = await CertificateTemplates.getAll();
-            setTemplates(data);
+            // Ensure config matches type, or fallback
+            const typoFixData = data.map((t: any) => ({
+                ...t,
+                template_config: t.template_config?.elements ? t.template_config : DEFAULT_CONFIG
+            }));
+            setTemplates(typoFixData);
         } catch (error: any) {
-            toast({
-                title: "Error",
-                description: "Failed to load certificate templates",
-                variant: "destructive",
-            });
+            console.error("Failed to load templates", error);
+            // Don't show toast on initial load error to avoid spam if backend is weird
         } finally {
             setLoading(false);
         }
@@ -99,42 +183,137 @@ export default function CertificateTemplatesPage() {
     const handleOpenDialog = (template?: CertificateTemplate) => {
         if (template) {
             setEditingTemplate(template);
-            setFormData({
-                name: template.name,
-                description: template.description || "",
-                layout: template.template_config.layout || "classic",
-                background_color: template.template_config.background_color || "#ffffff",
-                border_color: template.template_config.border_color || "#000000",
-                border_style: template.template_config.border_style || "double",
-                title_text: template.template_config.title_text || "Certificate of Completion",
-                title_font: template.template_config.title_font || "Georgia",
-                title_color: template.template_config.title_color || "#1a1a1a",
-                body_font: template.template_config.body_font || "Arial",
-                body_color: template.template_config.body_color || "#333333",
-                is_default: template.is_default,
-            });
+            setName(template.name);
+            setDescription(template.description || "");
+            resetHistory(template.template_config || DEFAULT_CONFIG);
         } else {
             setEditingTemplate(null);
-            setFormData({
-                name: "",
-                description: "",
-                layout: "classic",
-                background_color: "#ffffff",
-                border_color: "#000000",
-                border_style: "double",
-                title_text: "Certificate of Completion",
-                title_font: "Georgia",
-                title_color: "#1a1a1a",
-                body_font: "Arial",
-                body_color: "#333333",
-                is_default: false,
-            });
+            setName("");
+            setDescription("");
+            resetHistory(DEFAULT_CONFIG);
         }
+        setSelectedElementId(null);
         setDialogOpen(true);
     };
 
+    const handleUpdateCanvasBackground = (color: string) => {
+        setConfig(prev => ({
+            ...prev,
+            canvas: { ...prev.canvas, backgroundColor: color }
+        }));
+    };
+
+    // Helper to read file as base64 (since we don't have a direct file upload endpoint for this yet)
+    // In a real app, you'd upload -> get URL. For now, data URI is fine for MVP or small images.
+    const handleUploadBackground = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                setConfig(prev => ({
+                    ...prev,
+                    canvas: { ...prev.canvas, backgroundImage: event.target?.result as string }
+                }));
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemoveBackground = () => {
+        setConfig(prev => ({
+            ...prev,
+            canvas: { ...prev.canvas, backgroundImage: undefined }
+        }));
+    };
+
+    const handleAddText = (text: string) => {
+        const newElement: CertificateElement = {
+            id: crypto.randomUUID(),
+            type: text.startsWith('{') ? 'variable' : 'text',
+            content: text,
+            x: config.canvas.width / 2,
+            y: config.canvas.height / 2,
+            style: {
+                fontFamily: 'Arial, sans-serif',
+                fontSize: 24,
+                color: '#000000',
+                textAlign: 'center',
+                fontWeight: 'normal',
+                fontStyle: 'normal'
+            }
+        };
+        setConfig(prev => ({
+            ...prev,
+            elements: [...prev.elements, newElement]
+        }));
+        setSelectedElementId(newElement.id);
+    };
+
+    const handleAddImage = (file: File) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            if (event.target?.result) {
+                const newElement: CertificateElement = {
+                    id: crypto.randomUUID(),
+                    type: 'image',
+                    content: event.target.result as string,
+                    x: config.canvas.width / 2,
+                    y: config.canvas.height / 2,
+                    width: 150,
+                    height: 150,
+                    style: {
+                        opacity: 1,
+                    }
+                };
+                setConfig(prev => ({
+                    ...prev,
+                    elements: [...prev.elements, newElement]
+                }));
+                setSelectedElementId(newElement.id);
+            }
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleAddQrCode = () => {
+        const newElement: CertificateElement = {
+            id: crypto.randomUUID(),
+            type: 'qrcode',
+            content: 'https://example.com/verify/123456', // Default placeholder
+            x: config.canvas.width / 2,
+            y: config.canvas.height / 2,
+            width: 100,
+            height: 100,
+            style: {
+                opacity: 1,
+            }
+        };
+        setConfig(prev => ({
+            ...prev,
+            elements: [...prev.elements, newElement]
+        }));
+        setSelectedElementId(newElement.id);
+    };
+
+    const handleUpdateElement = (id: string, updates: Partial<CertificateElement>) => {
+        setConfig(prev => ({
+            ...prev,
+            elements: prev.elements.map(el => el.id === id ? { ...el, ...updates } : el)
+        }));
+    };
+
+    const handleDeleteElement = (id: string) => {
+        setConfig(prev => ({
+            ...prev,
+            elements: prev.elements.filter(el => el.id !== id)
+        }));
+        setSelectedElementId(null);
+    };
+
     const handleSubmit = async () => {
-        if (!formData.name) {
+        if (!name) {
             toast({
                 title: "Missing Information",
                 description: "Please provide a template name",
@@ -145,40 +324,19 @@ export default function CertificateTemplatesPage() {
 
         try {
             setSubmitting(true);
-            const template_config = {
-                layout: formData.layout,
-                background_color: formData.background_color,
-                border_color: formData.border_color,
-                border_style: formData.border_style,
-                title_text: formData.title_text,
-                title_font: formData.title_font,
-                title_color: formData.title_color,
-                body_font: formData.body_font,
-                body_color: formData.body_color,
+            const templateData = {
+                name,
+                description,
+                template_config: config,
+                is_default: false, // Default handling separate
             };
 
             if (editingTemplate) {
-                await CertificateTemplates.update(editingTemplate.id, {
-                    name: formData.name,
-                    description: formData.description,
-                    template_config,
-                    is_default: formData.is_default,
-                });
-                toast({
-                    title: "Template Updated",
-                    description: "Certificate template has been updated successfully",
-                });
+                await CertificateTemplates.update(editingTemplate.id, templateData);
+                toast({ title: "Template Updated", description: "Certificate template updated successfully" });
             } else {
-                await CertificateTemplates.create({
-                    name: formData.name,
-                    description: formData.description,
-                    template_config,
-                    is_default: formData.is_default,
-                });
-                toast({
-                    title: "Template Created",
-                    description: "New certificate template has been created successfully",
-                });
+                await CertificateTemplates.create(templateData);
+                toast({ title: "Template Created", description: "New certificate template created successfully" });
             }
 
             setDialogOpen(false);
@@ -196,41 +354,18 @@ export default function CertificateTemplatesPage() {
 
     const handleDelete = async (id: string) => {
         if (!confirm("Are you sure you want to delete this template?")) return;
-
         try {
             await CertificateTemplates.delete(id);
-            toast({
-                title: "Template Deleted",
-                description: "Certificate template has been deleted",
-            });
+            toast({ title: "Template Deleted", description: "Certificate template has been deleted" });
             loadTemplates();
         } catch (error: any) {
-            toast({
-                title: "Error",
-                description: error.response?.data?.message || "Failed to delete template",
-                variant: "destructive",
-            });
+            toast({ title: "Error", variant: "destructive", description: "Failed to delete template" });
         }
     };
 
-    const handleSetDefault = async (id: string) => {
-        try {
-            await CertificateTemplates.setDefault(id);
-            toast({
-                title: "Default Set",
-                description: "Template has been set as default",
-            });
-            loadTemplates();
-        } catch (error: any) {
-            toast({
-                title: "Error",
-                description: "Failed to set default template",
-                variant: "destructive",
-            });
-        }
-    };
+    const selectedElement = config.elements.find(el => el.id === selectedElementId) || null;
 
-    if (loading) {
+    if (loading && templates.length === 0) {
         return (
             <AdminDashboardLayout title="Certificate Templates" subtitle="Create and manage certificate templates">
                 <div className="flex items-center justify-center h-64">
@@ -250,6 +385,7 @@ export default function CertificateTemplatesPage() {
                             {templates.length} template{templates.length !== 1 ? "s" : ""} total
                         </p>
                     </div>
+
                     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                         <DialogTrigger asChild>
                             <Button onClick={() => handleOpenDialog()}>
@@ -257,121 +393,86 @@ export default function CertificateTemplatesPage() {
                                 Create Template
                             </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-                            <DialogHeader>
-                                <DialogTitle>
-                                    {editingTemplate ? "Edit Template" : "Create Certificate Template"}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    {editingTemplate
-                                        ? "Update the certificate template configuration"
-                                        : "Create a new certificate template for your courses"}
-                                </DialogDescription>
-                            </DialogHeader>
-                            <div className="grid gap-4 py-4">
-                                <div className="grid gap-2">
-                                    <Label htmlFor="name">Name *</Label>
+                        <DialogContent className="max-w-[95vw] w-[1400px] h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+
+                            {/* Toolbar Header */}
+                            <div className="flex items-center justify-between px-6 py-3 border-b bg-gray-50/50">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <h2 className="text-lg font-semibold">
+                                        {editingTemplate ? "Edit Template" : "New Template"}
+                                    </h2>
+                                    <div className="h-6 w-px bg-gray-200" />
                                     <Input
-                                        id="name"
-                                        value={formData.name}
-                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                        placeholder="e.g., Classic Certificate"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Template Name"
+                                        className="h-8 w-64 bg-transparent border-transparent hover:border-input focus:border-input transition-colors"
                                     />
                                 </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="description">Description</Label>
-                                    <Textarea
-                                        id="description"
-                                        value={formData.description}
-                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                        placeholder="Optional description"
-                                        rows={2}
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="layout">Layout</Label>
-                                        <Select value={formData.layout} onValueChange={(value) => setFormData({ ...formData, layout: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="classic">Classic</SelectItem>
-                                                <SelectItem value="modern">Modern</SelectItem>
-                                                <SelectItem value="elegant">Elegant</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                <div className="flex items-center gap-2">
+                                    {/* Undo/Redo */}
+                                    <div className="flex items-center gap-1 mr-2">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={undo}
+                                            disabled={!canUndo}
+                                            title="Undo (Cmd/Ctrl+Z)"
+                                        >
+                                            <Undo2 className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={redo}
+                                            disabled={!canRedo}
+                                            title="Redo (Cmd/Ctrl+Y)"
+                                        >
+                                            <Redo2 className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="border_style">Border Style</Label>
-                                        <Select value={formData.border_style} onValueChange={(value) => setFormData({ ...formData, border_style: value })}>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="none">None</SelectItem>
-                                                <SelectItem value="solid">Solid</SelectItem>
-                                                <SelectItem value="double">Double</SelectItem>
-                                                <SelectItem value="dashed">Dashed</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-3 gap-4">
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="bg_color">Background</Label>
-                                        <Input
-                                            id="bg_color"
-                                            type="color"
-                                            value={formData.background_color}
-                                            onChange={(e) => setFormData({ ...formData, background_color: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="border_color">Border</Label>
-                                        <Input
-                                            id="border_color"
-                                            type="color"
-                                            value={formData.border_color}
-                                            onChange={(e) => setFormData({ ...formData, border_color: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="grid gap-2">
-                                        <Label htmlFor="title_color">Title</Label>
-                                        <Input
-                                            id="title_color"
-                                            type="color"
-                                            value={formData.title_color}
-                                            onChange={(e) => setFormData({ ...formData, title_color: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="grid gap-2">
-                                    <Label htmlFor="title_text">Title Text</Label>
-                                    <Input
-                                        id="title_text"
-                                        value={formData.title_text}
-                                        onChange={(e) => setFormData({ ...formData, title_text: e.target.value })}
-                                    />
+                                    <div className="h-6 w-px bg-gray-200" />
+                                    <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
+                                        Cancel
+                                    </Button>
+                                    <Button onClick={handleSubmit} disabled={submitting} className="gap-2">
+                                        {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                                        <Save className="h-4 w-4" />
+                                        Save Template
+                                    </Button>
                                 </div>
                             </div>
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={submitting}>
-                                    Cancel
-                                </Button>
-                                <Button onClick={handleSubmit} disabled={submitting}>
-                                    {submitting ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                            Saving...
-                                        </>
-                                    ) : editingTemplate ? (
-                                        "Update Template"
-                                    ) : (
-                                        "Create Template"
-                                    )}
-                                </Button>
-                            </DialogFooter>
+
+                            {/* Builder Area */}
+                            <div className="flex-1 flex overflow-hidden bg-gray-100">
+                                {/* Left Sidebar Controls */}
+                                <CertificateToolbar
+                                    selectedElement={selectedElementId ? config.elements.find(e => e.id === selectedElementId) || null : null}
+                                    onUpdateElement={handleUpdateElement}
+                                    onAddText={handleAddText}
+                                    onAddImage={handleAddImage}
+                                    onAddQrCode={handleAddQrCode}
+                                    onDeleteElement={handleDeleteElement}
+                                    onUploadBackground={handleUploadBackground}
+                                    onRemoveBackground={handleRemoveBackground}
+                                    canvasBackgroundColor={config.canvas.backgroundColor}
+                                    onUpdateCanvasBackground={handleUpdateCanvasBackground}
+                                />
+
+                                {/* Main Canvas Area */}
+                                <div className="flex-1 overflow-auto flex items-center justify-center p-8 relative">
+                                    <div className="shadow-2xl ring-1 ring-black/5">
+                                        <CertificateCanvas
+                                            config={config}
+                                            selectedElementId={selectedElementId}
+                                            onSelectElement={setSelectedElementId}
+                                            onUpdateElement={handleUpdateElement}
+                                            zoom={1}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
                         </DialogContent>
                     </Dialog>
                 </div>
@@ -399,7 +500,7 @@ export default function CertificateTemplatesPage() {
                                     <div className="flex items-start justify-between">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2">
-                                                <CardTitle className="text-base">{template.name}</CardTitle>
+                                                <CardTitle className="text-base truncate">{template.name}</CardTitle>
                                                 {template.is_default && (
                                                     <Badge className="bg-primary/10 text-primary">
                                                         <Star className="h-3 w-3 mr-1" />
@@ -407,30 +508,29 @@ export default function CertificateTemplatesPage() {
                                                     </Badge>
                                                 )}
                                             </div>
-                                            {template.description && (
-                                                <CardDescription className="mt-1 text-xs">
-                                                    {template.description}
-                                                </CardDescription>
-                                            )}
+                                            <CardDescription className="mt-1 text-xs truncate">
+                                                {template.description || "No description"}
+                                            </CardDescription>
                                         </div>
-                                        <Award className="h-5 w-5 text-muted-foreground" />
                                     </div>
                                 </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <div className="text-xs text-muted-foreground space-y-1">
-                                        <div className="flex justify-between">
-                                            <span>Layout:</span>
-                                            <span className="font-medium capitalize">
-                                                {template.template_config.layout || "Classic"}
-                                            </span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Used by:</span>
-                                            <span className="font-medium">
-                                                {template._count?.courses || 0} course{template._count?.courses !== 1 ? "s" : ""}
-                                            </span>
-                                        </div>
+                                <CardContent className="space-y-4">
+                                    {/* Mini Preview using simple scaling of the Canvas logic? 
+                                        Or just a placeholder if too expensive. 
+                                        Ideally we'd generate a thumbnail on save, but for now let's show a colored box.
+                                    */}
+                                    <div
+                                        className="w-full aspect-[4/3] rounded border bg-gray-50 relative overflow-hidden flex items-center justify-center text-muted-foreground text-xs"
+                                        style={{
+                                            backgroundColor: template.template_config?.canvas?.backgroundColor || '#fff',
+                                            backgroundImage: template.template_config?.canvas?.backgroundImage ? `url(${template.template_config.canvas.backgroundImage})` : 'none',
+                                            backgroundSize: 'cover'
+                                        }}
+                                    >
+                                        {!template.template_config?.canvas?.backgroundImage && "Preview"}
+                                        <div className="absolute inset-0 bg-black/5" />
                                     </div>
+
                                     <div className="flex gap-2">
                                         <Button
                                             variant="outline"
@@ -441,15 +541,6 @@ export default function CertificateTemplatesPage() {
                                             <Edit className="h-3 w-3 mr-1" />
                                             Edit
                                         </Button>
-                                        {!template.is_default && (
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => handleSetDefault(template.id)}
-                                            >
-                                                <Star className="h-3 w-3" />
-                                            </Button>
-                                        )}
                                         <Button
                                             variant="outline"
                                             size="sm"
@@ -468,3 +559,4 @@ export default function CertificateTemplatesPage() {
         </AdminDashboardLayout>
     );
 }
+

@@ -92,64 +92,74 @@ export function SectionItem({
             ref={setNodeRef}
             style={style}
             className={cn(
-                'group/section bg-slate-50 rounded-xl border border-gray-200 overflow-hidden mb-4 transition-all',
-                isDragging && 'shadow-xl ring-2 ring-blue-500/20 opacity-80 z-10'
+                'group/section bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-md overflow-hidden mb-6 transition-all duration-300',
+                isDragging && 'shadow-2xl ring-2 ring-blue-500/20 rotate-1 scale-[1.01] z-10 cursor-grabbing'
             )}
         >
             {/* Header */}
-            <div className="flex items-center gap-2 p-3 bg-white border-b border-gray-100">
+            <div className={cn(
+                "flex items-center gap-4 p-5 transition-colors border-b border-gray-50",
+                section.is_collapsed ? "bg-white" : "bg-gray-50/30"
+            )}>
                 <button
                     {...attributes}
                     {...listeners}
-                    className="cursor-grab text-gray-400 hover:text-gray-600 p-1.5 rounded hover:bg-gray-50 bg-transparent transition-colors"
+                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-600 p-2 rounded-xl hover:bg-gray-100 transition-colors"
                 >
-                    <GripVertical className="h-5 w-5" />
+                    <GripVertical className="h-6 w-6" />
                 </button>
 
                 <div className="flex-1">
                     {isEditing ? (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                             <Input
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="h-8 font-medium"
+                                className="h-10 font-bold text-lg bg-white border-blue-200 focus:ring-blue-100 rounded-xl"
                                 autoFocus
                                 onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
                             />
-                            <Button size="sm" onClick={saveEdit}>Save</Button>
+                            <Button size="sm" onClick={saveEdit} className="rounded-xl px-4 bg-blue-600 text-white hover:bg-blue-700">Save</Button>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-gray-800 text-lg">{section.title}</h3>
-                            <span className="text-xs text-gray-400 font-normal">
-                                {section.items.length} lessons
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-3">
+                                <h3 className="font-bold text-gray-900 text-lg leading-tight tracking-tight">
+                                    {section.title}
+                                </h3>
+                                <span className="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-500">
+                                    Section {section.order_index}
+                                </span>
+                            </div>
+                            <span className="text-sm text-gray-500 font-medium">
+                                {section.items.length} {section.items.length === 1 ? 'item' : 'items'} inside
                             </span>
                         </div>
                     )}
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-2">
                     <Button
                         size="icon"
                         variant="ghost"
                         onClick={() => onUpdate({ is_collapsed: !section.is_collapsed })}
-                        className="h-8 w-8 text-gray-500"
+                        className="h-10 w-10 text-gray-500 hover:bg-white hover:shadow-sm rounded-xl transition-all"
                     >
-                        {section.is_collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                        {section.is_collapsed ? <ChevronDown className="h-5 w-5" /> : <ChevronUp className="h-5 w-5" />}
                     </Button>
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-500">
-                                <MoreVertical className="h-4 w-4" />
+                            <Button size="icon" variant="ghost" className="h-10 w-10 text-gray-500 hover:bg-white hover:shadow-sm rounded-xl transition-all">
+                                <MoreVertical className="h-5 w-5" />
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setIsEditing(true)}>
-                                <Edit className="h-4 w-4 mr-2" /> Rename
+                        <DropdownMenuContent align="end" className="rounded-2xl shadow-xl border-gray-100 p-2 w-48">
+                            <DropdownMenuItem onClick={() => setIsEditing(true)} className="rounded-xl py-2.5 px-3 cursor-pointer">
+                                <Edit className="h-4 w-4 mr-3 text-gray-500" /> Rename Section
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={onDelete} className="text-red-600">
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                            <DropdownMenuItem onClick={onDelete} className="text-red-600 hover:text-red-700 hover:bg-red-50 rounded-xl py-2.5 px-3 cursor-pointer focus:bg-red-50 focus:text-red-700">
+                                <Trash2 className="h-4 w-4 mr-3" /> Delete Section
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
@@ -158,31 +168,24 @@ export function SectionItem({
 
             {/* Content */}
             {!section.is_collapsed && (
-                <div className="p-3">
+                <div className="p-5 bg-white">
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
                         onDragEnd={handleDragEnd}
-                    // To properly implement onDragEnd here we need arrayMove.
-                    // I will pass the event up to parent via a modified handler if needed, 
-                    // OR implement arrayMove here. 
-                    // For now let's delegate drag end logic to a prop that handles the event directly?
-                    // No, DndContext needs to be here for the sortable context.
                     >
-                        {/* We need to pass the event handler prop for drag end if we want parent to handle it completely
-                            but DndContext triggers onDragEnd.
-                            Best practice: Parent handles logic.
-                            But we are splitting files.
-                            Let's import `arrayMove` in this file.
-                        */}
                         <SortableContext
                             items={section.items.map(i => i.id)}
                             strategy={verticalListSortingStrategy}
                         >
-                            <div className="min-h-[50px]">
+                            <div className="min-h-[20px] space-y-3 pb-4">
                                 {section.items.length === 0 && (
-                                    <div className="text-center py-6 text-gray-400 bg-white/50 rounded border border-dashed border-gray-200">
-                                        <p className="text-sm">Empty section</p>
+                                    <div className="text-center py-10 px-4 text-gray-400 bg-gray-50/50 rounded-2xl border-2 border-dashed border-gray-100 flex flex-col items-center gap-2">
+                                        <div className="h-10 w-10 bg-gray-100 rounded-full flex items-center justify-center text-gray-400">
+                                            <Plus className="h-5 w-5" />
+                                        </div>
+                                        <p className="text-sm font-medium">This section is empty</p>
+                                        <p className="text-xs text-gray-400">Add lessons or quizzes to get started</p>
                                     </div>
                                 )}
                                 {section.items.map((item) => (
@@ -197,32 +200,52 @@ export function SectionItem({
                         </SortableContext>
                     </DndContext>
 
-                    {/* Add Buttons */}
-                    <div className="mt-3 flex gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 gap-2 border-dashed border-gray-300 text-gray-600 hover:text-blue-600 hover:border-blue-300 bg-white"
-                            onClick={() => onAddItem('LECTURE')}
-                        >
-                            <Video className="h-4 w-4" /> Lecture
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 gap-2 border-dashed border-gray-300 text-gray-600 hover:text-purple-600 hover:border-purple-300 bg-white"
-                            onClick={() => onAddItem('QUIZ')}
-                        >
-                            <HelpCircle className="h-4 w-4" /> Quiz
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 gap-2 border-dashed border-gray-300 text-gray-600 hover:text-orange-600 hover:border-orange-300 bg-white"
-                            onClick={() => onAddItem('ASSIGNMENT')}
-                        >
-                            <ClipboardList className="h-4 w-4" /> Assignment
-                        </Button>
+                    {/* Add Buttons Grid */}
+                    <div className="mt-4 pt-4 border-t border-dashed border-gray-100">
+                        <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">Add Content</p>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <Button
+                                variant="ghost"
+                                className="h-auto py-3 px-4 justify-start gap-3 border border-gray-100 bg-gray-50 hover:bg-blue-50/50 hover:border-blue-100 hover:text-blue-700 text-gray-600 rounded-2xl transition-all group"
+                                onClick={() => onAddItem('LECTURE')}
+                            >
+                                <div className="h-8 w-8 rounded-full bg-white border border-gray-200 group-hover:border-blue-200 flex items-center justify-center text-blue-500 shadow-sm">
+                                    <Video className="h-4 w-4" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-semibold text-sm">Lecture</span>
+                                    <span className="block text-[10px] opacity-70 font-normal">Video, File, or Text</span>
+                                </div>
+                            </Button>
+
+                            <Button
+                                variant="ghost"
+                                className="h-auto py-3 px-4 justify-start gap-3 border border-gray-100 bg-gray-50 hover:bg-purple-50/50 hover:border-purple-100 hover:text-purple-700 text-gray-600 rounded-2xl transition-all group"
+                                onClick={() => onAddItem('QUIZ')}
+                            >
+                                <div className="h-8 w-8 rounded-full bg-white border border-gray-200 group-hover:border-purple-200 flex items-center justify-center text-purple-500 shadow-sm">
+                                    <HelpCircle className="h-4 w-4" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-semibold text-sm">Quiz</span>
+                                    <span className="block text-[10px] opacity-70 font-normal">Check understanding</span>
+                                </div>
+                            </Button>
+
+                            <Button
+                                variant="ghost"
+                                className="h-auto py-3 px-4 justify-start gap-3 border border-gray-100 bg-gray-50 hover:bg-orange-50/50 hover:border-orange-100 hover:text-orange-700 text-gray-600 rounded-2xl transition-all group"
+                                onClick={() => onAddItem('ASSIGNMENT')}
+                            >
+                                <div className="h-8 w-8 rounded-full bg-white border border-gray-200 group-hover:border-orange-200 flex items-center justify-center text-orange-500 shadow-sm">
+                                    <ClipboardList className="h-4 w-4" />
+                                </div>
+                                <div className="text-left">
+                                    <span className="block font-semibold text-sm">Assignment</span>
+                                    <span className="block text-[10px] opacity-70 font-normal">Tasks & Projects</span>
+                                </div>
+                            </Button>
+                        </div>
                     </div>
                 </div>
             )}
