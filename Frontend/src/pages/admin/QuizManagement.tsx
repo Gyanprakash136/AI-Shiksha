@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
+import { QuizResultsView } from "./components/QuizResultsView";
 
 export default function QuizManagement() {
     const navigate = useNavigate();
@@ -214,19 +215,7 @@ export default function QuizManagement() {
                         </Card>
                     </>
                 ) : (
-                    <div className="flex flex-col items-center justify-center py-24 text-center">
-                        <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
-                            <BarChart className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-xl font-semibold mb-2">Results & Analytics</h3>
-                        <p className="text-muted-foreground max-w-sm">
-                            Detailed quiz results and student analytics are coming soon.
-                            We will implement this feature in the upcoming update.
-                        </p>
-                        <Badge variant="secondary" className="mt-4">
-                            Coming Soon
-                        </Badge>
-                    </div>
+                    <QuizResultsView quizzes={quizzes} />
                 )}
             </div>
         </AdminDashboardLayout>

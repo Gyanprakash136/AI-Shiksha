@@ -25,6 +25,7 @@ import {
   CreateLectureContentDto,
   UpdateLectureContentDto,
 } from '../courses/dto/section-item.dto';
+import { User } from '../../common/decorators/user.decorator';
 
 @Controller()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
@@ -101,6 +102,16 @@ export class SectionsController {
   @Roles(Role.INSTRUCTOR, Role.ADMIN)
   reorderItems(@Body() dto: ReorderItemsDto) {
     return this.sectionsService.reorderItems(dto);
+  }
+
+  // Get item by slugs (course slug + lesson slug) - for SEO-friendly URLs
+  @Get('courses/:courseSlug/lessons/:lessonSlug')
+  getItemBySlug(
+    @Param('courseSlug') courseSlug: string,
+    @Param('lessonSlug') lessonSlug: string,
+    @User() user: any,
+  ) {
+    return this.sectionsService.findItemBySlug(courseSlug, lessonSlug, user?.userId);
   }
 
   // ========== LECTURE CONTENT ==========

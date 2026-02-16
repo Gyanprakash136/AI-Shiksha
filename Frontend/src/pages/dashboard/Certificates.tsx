@@ -11,7 +11,10 @@ import {
   ExternalLink,
   Calendar,
   CheckCircle2,
+  Search,
+  Filter
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
 
 const certificates = [
   {
@@ -48,108 +51,106 @@ export default function Certificates() {
   const isAdmin = user?.role === "admin";
 
   const content = (
-    <div className="p-6 space-y-6">
+    <div className="p-6 max-w-6xl mx-auto space-y-8 font-sans">
 
-      {/* Stats */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-lms-amber/10">
-              <Award className="h-6 w-6 text-lms-amber" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">{certificates.length}</p>
-              <p className="text-sm text-muted-foreground">Total Certificates</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-lms-blue/10">
-              <CheckCircle2 className="h-6 w-6 text-lms-blue" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">12</p>
-              <p className="text-sm text-muted-foreground">Skills Verified</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-lms-emerald/10">
-              <Share2 className="h-6 w-6 text-lms-emerald" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold">8</p>
-              <p className="text-sm text-muted-foreground">Times Shared</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Header Stats */}
+      <div className="grid gap-6 md:grid-cols-3">
+        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-amber-50 flex items-center justify-center">
+            <Award className="h-6 w-6 text-amber-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-[#1F1F1F]">{certificates.length}</p>
+            <p className="text-sm text-gray-500">Certificates Earned</p>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-blue-50 flex items-center justify-center">
+            <CheckCircle2 className="h-6 w-6 text-blue-500" />
+          </div>
+          <div>
+            <p className="text-2xl font-bold text-[#1F1F1F]">12</p>
+            <p className="text-sm text-gray-500">Skills Verified</p>
+          </div>
+        </div>
       </div>
 
-      {/* Certificates Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {certificates.map((cert) => (
-          <Card key={cert.id} className="overflow-hidden hover:shadow-md transition-shadow">
-            <div className="relative h-40">
-              <img
-                src={cert.thumbnail}
-                alt={cert.courseName}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              <div className="absolute bottom-3 left-3 right-3">
-                <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-lms-amber" />
-                  <span className="text-white font-medium text-sm">Certificate of Completion</span>
-                </div>
-              </div>
-            </div>
-            <CardContent className="p-4 space-y-4">
-              <div>
-                <h3 className="font-semibold text-foreground line-clamp-2">{cert.courseName}</h3>
-                <p className="text-sm text-muted-foreground">by {cert.instructor}</p>
-              </div>
+      {/* Controls */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <h2 className="text-xl font-light text-[#1F1F1F]">My Certificates</h2>
+        <div className="flex gap-2 w-full md:w-auto">
+          <div className="relative flex-1 md:w-64">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Input placeholder="Search certificates..." className="pl-10 h-10 rounded-full border-gray-200 bg-white" />
+          </div>
+          <Button variant="outline" className="rounded-full gap-2 bg-white">
+            <Filter className="h-4 w-4" /> Filter
+          </Button>
+        </div>
+      </div>
 
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                <span>Completed {cert.completedDate}</span>
-              </div>
-
-              <div className="flex flex-wrap gap-1">
-                {cert.skills.slice(0, 3).map((skill) => (
-                  <Badge key={skill} variant="secondary" className="text-xs">
-                    {skill}
-                  </Badge>
-                ))}
-                {cert.skills.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{cert.skills.length - 3}
-                  </Badge>
-                )}
-              </div>
-
-              <div className="pt-2 border-t">
-                <p className="text-xs text-muted-foreground mb-3">
-                  Credential ID: {cert.credentialId}
-                </p>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="flex-1 gap-2">
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1 gap-2">
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </Button>
-                  <Button variant="ghost" size="sm" className="px-2">
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Certificate List View */}
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left min-w-[800px]">
+            <thead className="bg-gray-50/50 border-b border-gray-100">
+              <tr>
+                <th className="px-6 py-4 font-medium text-xs text-black uppercase tracking-wider">Certificate</th>
+                <th className="px-6 py-4 font-medium text-xs text-black uppercase tracking-wider w-1/3">Skills</th>
+                <th className="px-6 py-4 font-medium text-xs text-black uppercase tracking-wider">Issue Date</th>
+                <th className="px-6 py-4 font-medium text-xs text-black uppercase tracking-wider text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {certificates.map((cert) => (
+                <tr key={cert.id} className="hover:bg-gray-50/50 transition-colors group">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-16 w-24 rounded-lg overflow-hidden border border-gray-200 relative flex-shrink-0">
+                        <img src={cert.thumbnail} className="w-full h-full object-cover" alt="" />
+                        <div className="absolute inset-0 bg-black/5 flex items-center justify-center">
+                          <Award className="h-8 w-8 text-black drop-shadow-sm opacity-80" />
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-semibold text-[#1F1F1F] text-sm md:text-base leading-tight mb-1">{cert.courseName}</div>
+                        <div className="text-xs text-gray-500">Instructor: {cert.instructor}</div>
+                        <div className="text-[10px] text-gray-400 font-mono mt-1">ID: {cert.credentialId}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      {cert.skills.slice(0, 3).map(skill => (
+                        <Badge key={skill} variant="secondary" className="font-normal text-xs bg-gray-100 text-gray-600 border border-gray-200">{skill}</Badge>
+                      ))}
+                      {cert.skills.length > 3 && (
+                        <Badge variant="outline" className="text-xs text-gray-400 border-dashed">+{cert.skills.length - 3}</Badge>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      {cert.completedDate}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button size="sm" variant="outline" className="rounded-full h-8 w-8 p-0 border-gray-200 text-gray-500">
+                        <Share2 className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" className="rounded-full h-8 gap-2 bg-[#0056D2] hover:bg-[#00419e] text-white px-4">
+                        <Download className="h-3.5 w-3.5" />
+                        <span className="hidden sm:inline">PDF</span>
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

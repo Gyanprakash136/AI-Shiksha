@@ -15,7 +15,7 @@ export default function OrderSuccess() {
         </p>
 
         <div className="space-y-4">
-          <Link to="/my-courses">
+          <Link to="/dashboard">
             <button className="w-full bg-[#2d2f31] text-white font-bold py-3.5 px-6 hover:bg-black transition-colors flex items-center justify-center gap-2">
               <BookOpen className="w-5 h-5" />
               Go to My Learning

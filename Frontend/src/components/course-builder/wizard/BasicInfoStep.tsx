@@ -43,7 +43,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, ChevronsUpDown, X, Loader2, Link as LinkIcon, UploadCloud, Plus, Sparkles, FileText } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Categories, Tags } from '@/lib/api';
+import { Categories, Tags, Upload } from '@/lib/api';
 import { useUsers } from '@/hooks/useUsers';
 import { RichTextEditor } from '@/components/editors/RichTextEditor';
 import { ImageUpload, VideoUpload } from '@/components/editors/FileUpload';
@@ -172,7 +172,19 @@ export function BasicInfoStep({ courseId, initialData, onSave, onSaveAndContinue
     };
 
     const handleFileUpload = async (files: File[]): Promise<string[]> => {
-        return files.map(file => URL.createObjectURL(file));
+        const uploadedUrls = await Promise.all(
+            files.map(async (file) => {
+                try {
+                    const response = await Upload.uploadFile(file);
+                    return `http://localhost:3000${response.url}`; // prepend backend URL
+                } catch (error) {
+                    console.error('Upload failed', error);
+                    toast.error(`Failed to upload ${file.name}`);
+                    return '';
+                }
+            })
+        );
+        return uploadedUrls.filter(url => url !== '');
     };
 
     const handleCreateCategory = async () => {

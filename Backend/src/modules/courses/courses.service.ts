@@ -219,6 +219,7 @@ export class CoursesService {
         instructor: { include: { user: true } },
         category: true,
         tags: { include: { tag: true } },
+        // New curriculum structure
         sections: {
           include: {
             items: {
@@ -229,6 +230,15 @@ export class CoursesService {
             },
           },
           orderBy: { order_index: 'asc' },
+        },
+        // Old curriculum structure - for backwards compatibility
+        modules: {
+          include: {
+            lessons: {
+              orderBy: { position: 'asc' },
+            },
+          },
+          orderBy: { position: 'asc' },
         },
         reviews: {
           include: {
@@ -258,6 +268,7 @@ export class CoursesService {
         instructor: { include: { user: true } },
         category: true,
         tags: { include: { tag: true } },
+        // New curriculum structure (sections)
         sections: {
           include: {
             items: {
@@ -268,6 +279,15 @@ export class CoursesService {
             },
           },
           orderBy: { order_index: 'asc' },
+        },
+        // Old curriculum structure (modules/lessons) - needed for backwards compatibility
+        modules: {
+          include: {
+            lessons: {
+              orderBy: { position: 'asc' },
+            },
+          },
+          orderBy: { position: 'asc' },
         },
         reviews: {
           include: {

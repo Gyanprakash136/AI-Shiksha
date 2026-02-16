@@ -249,4 +249,270 @@ export class CompletionsService {
             message: 'Certificate issued successfully',
         };
     }
+
+    async markLessonComplete(studentId: string, lessonId: string) {
+        // Find lesson and related course
+        const lesson = await this.prisma.lesson.findUnique({
+            where: { id: lessonId },
+            include: { module: { include: { course: true } } },
+        });
+
+        if (!lesson) {
+            // Try to find as SectionItem if not found as Lesson
+            return this.markSectionItemComplete(studentId, lessonId);
+        }
+
+        const courseId = lesson.module.course.id;
+
+        // Verify enrollment
+        const enrollment = await this.prisma.enrollment.findUnique({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+        });
+
+        if (!enrollment || enrollment.status !== 'active') {
+            throw new BadRequestException('Student is not enrolled in this course');
+        }
+
+        // Update lesson progress
+        const progress = await this.prisma.lessonProgress.upsert({
+            where: {
+                student_id_lesson_id: {
+                    student_id: studentId,
+                    lesson_id: lessonId,
+                },
+            },
+            update: {
+                completed: true,
+                completed_at: new Date(),
+            },
+            create: {
+                student_id: studentId,
+                lesson_id: lessonId,
+                completed: true,
+                completed_at: new Date(),
+            },
+        });
+
+        // Recalculate course progress
+        await this.updateCourseProgress(studentId, courseId);
+
+        return progress;
+    }
+
+    async markSectionItemComplete(studentId: string, itemId: string) {
+        // Find item and related course
+        const item = await this.prisma.sectionItem.findUnique({
+            where: { id: itemId },
+            include: { section: { include: { course: true } } },
+        });
+
+        if (!item) {
+            throw new NotFoundException('Lesson not found');
+        }
+
+        const courseId = item.section.course.id;
+
+        // Verify enrollment
+        const enrollment = await this.prisma.enrollment.findUnique({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+        });
+
+        if (!enrollment || enrollment.status !== 'active') {
+            throw new BadRequestException('Student is not enrolled in this course');
+        }
+
+        // Update section item progress
+        const progress = await this.prisma.sectionItemProgress.upsert({
+            where: {
+                student_id_item_id: {
+                    student_id: studentId,
+                    item_id: itemId,
+                },
+            },
+            update: {
+                completed: true,
+                completed_at: new Date(),
+            },
+            create: {
+                student_id: studentId,
+                item_id: itemId,
+                completed: true,
+                completed_at: new Date(),
+            },
+        });
+
+        // Recalculate course progress
+        await this.updateCourseProgress(studentId, courseId);
+
+        return progress;
+    }
+
+    private async updateCourseProgress(studentId: string, courseId: string) {
+        // Get total lessons (Legacy)
+        const totalLessons = await this.prisma.lesson.count({
+            where: {
+                module: {
+                    course_id: courseId,
+                },
+            },
+        });
+
+        // Get total section items (New)
+        const totalSectionItems = await this.prisma.sectionItem.count({
+            where: {
+                section: {
+                    course_id: courseId,
+                },
+            },
+        });
+
+        const totalItems = totalLessons + totalSectionItems;
+
+        if (totalItems === 0) return;
+
+        // Get completed lessons (Legacy)
+        const completedLessons = await this.prisma.lessonProgress.count({
+            where: {
+                student_id: studentId,
+                completed: true,
+                lesson: {
+                    module: {
+                        course_id: courseId,
+                    },
+                },
+            },
+        });
+
+        // Get completed section items (New)
+        const completedSectionItems = await this.prisma.sectionItemProgress.count({
+            where: {
+                student_id: studentId,
+                completed: true,
+                item: {
+                    section: {
+                        course_id: courseId,
+                    },
+                },
+            },
+        });
+
+        const completedItems = completedLessons + completedSectionItems;
+
+        const percentage = (completedItems / totalItems) * 100;
+        const isComplete = percentage === 100;
+
+        // Update Course Progress
+        await this.prisma.courseProgress.upsert({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+            update: {
+                progress_percentage: percentage,
+                completed: isComplete,
+                updated_at: new Date(),
+            },
+            create: {
+                student_id: studentId,
+                course_id: courseId,
+                progress_percentage: percentage,
+                completed: isComplete,
+            },
+        });
+
+        // Update Enrollment progress
+        await this.prisma.enrollment.update({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+            data: {
+                progress_percentage: Math.round(percentage),
+                completed_at: isComplete ? new Date() : null,
+                last_activity_at: new Date(),
+            },
+        });
+
+    }
+
+    async logAccess(studentId: string, courseId: string, itemId: string) {
+        // Verify enrollment
+        const enrollment = await this.prisma.enrollment.findUnique({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+        });
+
+        if (!enrollment || enrollment.status !== 'active') {
+            throw new BadRequestException('Student is not enrolled in this course');
+        }
+
+        // Update Course Progress
+        await this.prisma.courseProgress.upsert({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+            update: {
+                last_accessed_at: new Date(),
+                last_accessed_item_id: itemId,
+            },
+            create: {
+                student_id: studentId,
+                course_id: courseId,
+                last_accessed_at: new Date(),
+                last_accessed_item_id: itemId,
+            },
+        });
+
+        // Update Enrollment
+        await this.prisma.enrollment.update({
+            where: {
+                student_id_course_id: {
+                    student_id: studentId,
+                    course_id: courseId,
+                },
+            },
+            data: {
+                last_activity_at: new Date(),
+            },
+        });
+
+        return { success: true };
+    }
+
+    async updateTimeSpent(studentId: string, durationMinutes: number) {
+        if (durationMinutes <= 0) return;
+
+        // Update User's weekly minutes
+        await this.prisma.user.update({
+            where: { id: studentId },
+            data: {
+                weekly_minutes_spent: {
+                    increment: durationMinutes,
+                },
+            },
+        });
+
+        return { success: true };
+    }
 }

@@ -105,6 +105,30 @@ export const Tags = {
     },
 };
 
+export const Upload = {
+    uploadFile: async (file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        const { data } = await api.post('/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+        return data;
+    },
+};
+
+export const SystemSettings = {
+    getTerms: async () => {
+        const { data } = await api.get('/system-settings/terms');
+        return data;
+    },
+    updateTerms: async (content: string) => {
+        const { data } = await api.put('/system-settings/terms', { content });
+        return data;
+    },
+};
+
 export const Enrollments = {
     getAll: async (search?: string, status?: string) => {
         const { data } = await api.get("/enrollments", { params: { search, status } });
@@ -166,6 +190,29 @@ export const Enrollments = {
         const { data } = await api.post('/enrollments/admin/bulk-incomplete', {
             enrollment_ids: enrollmentIds,
         });
+        return data;
+    },
+    getMyEnrollments: async () => {
+        const { data } = await api.get("/enrollments/my");
+        return data;
+    },
+    acceptTerms: async (courseId: string) => {
+        const { data } = await api.post(`/enrollments/${courseId}/accept-terms`);
+        return data;
+    },
+};
+
+export const Completions = {
+    markLessonComplete: async (lessonId: string) => {
+        const { data } = await api.post('/completions/lesson', { lessonId });
+        return data;
+    },
+    updateTimeSpent: async (minutes: number) => {
+        const { data } = await api.post('/completions/tracking/time', { minutes });
+        return data;
+    },
+    logAccess: async (courseId: string, itemId: string) => {
+        const { data } = await api.post('/completions/tracking/access', { courseId, itemId });
         return data;
     },
 };
@@ -262,6 +309,10 @@ export const Sections = {
 
 // Section Items (Lectures, Quizzes, Assignments)
 export const SectionItems = {
+    getBySlug: async (courseSlug: string, lessonSlug: string) => {
+        const { data } = await api.get(`/courses/${courseSlug}/lessons/${lessonSlug}`);
+        return data;
+    },
     create: async (sectionId: string, itemData: any) => {
         const { data } = await api.post(`/sections/${sectionId}/items`, itemData);
         return data;
@@ -379,31 +430,6 @@ export const Assignments = {
     },
 };
 
-// Course Completions
-export const Completions = {
-    getAll: async (search?: string) => {
-        const { data } = await api.get("/completions", { params: { search } });
-        return data;
-    },
-    getStats: async () => {
-        const { data } = await api.get("/completions/stats");
-        return data;
-    },
-    markComplete: async (studentId: string, courseId: string) => {
-        const { data } = await api.post("/completions/manual", {
-            student_id: studentId,
-            course_id: courseId,
-        });
-        return data;
-    },
-    issueCertificate: async (studentId: string, courseId: string) => {
-        const { data } = await api.post("/completions/issue-certificate", {
-            student_id: studentId,
-            course_id: courseId,
-        });
-        return data;
-    },
-};
 
 // Certificate Templates
 export const CertificateTemplates = {

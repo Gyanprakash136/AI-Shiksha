@@ -48,4 +48,33 @@ export class CompletionsController {
     ) {
         return this.completionsService.issueCertificate(studentId, courseId);
     }
+
+    @Post('lesson')
+    @ApiOperation({ summary: 'Mark lesson as complete' })
+    async markLessonComplete(
+        @Body('lessonId') lessonId: string,
+        @Request() req: any,
+    ) {
+        return this.completionsService.markLessonComplete(req.user.userId, lessonId);
+    }
+
+
+    @Post('tracking/time')
+    @ApiOperation({ summary: 'Update time spent (Heartbeat)' })
+    async updateTimeSpent(
+        @Body('minutes') minutes: number,
+        @Request() req: any,
+    ) {
+        return this.completionsService.updateTimeSpent(req.user.userId, minutes);
+    }
+
+    @Post('tracking/access')
+    @ApiOperation({ summary: 'Log access to a course item' })
+    async logAccess(
+        @Body('courseId') courseId: string,
+        @Body('itemId') itemId: string,
+        @Request() req: any,
+    ) {
+        return this.completionsService.logAccess(req.user.userId, courseId, itemId);
+    }
 }

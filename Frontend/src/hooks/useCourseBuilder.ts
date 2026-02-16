@@ -267,10 +267,45 @@ export function useCourseBuilder(courseId: string) {
         setSaving(true);
         try {
             const assignment = await Assignments.create(itemId, assignmentData);
+
+            // Update local state
+            setSections(sections.map(section => ({
+                ...section,
+                items: section.items?.map(item =>
+                    item.id === itemId ? { ...item, assignment } : item
+                )
+            })));
+
             toast.success('Assignment created');
             return assignment;
         } catch (error: any) {
             toast.error(error.response?.data?.message || 'Failed to create assignment');
+            throw error;
+        } finally {
+            setSaving(false);
+        }
+    }, [sections]);
+
+    const updateAssignment = useCallback(async (assignmentId: string, assignmentData: any) => {
+        setSaving(true);
+        try {
+            const assignment = await Assignments.update(assignmentId, assignmentData);
+
+            // Update local state - verify deeply nested update
+            setSections(prevSections => prevSections.map(section => ({
+                ...section,
+                items: section.items?.map(item => {
+                    if (item.assignment?.id === assignmentId) {
+                        return { ...item, assignment: { ...item.assignment, ...assignment } };
+                    }
+                    return item;
+                })
+            })));
+
+            toast.success('Assignment updated');
+            return assignment;
+        } catch (error: any) {
+            toast.error(error.response?.data?.message || 'Failed to update assignment');
             throw error;
         } finally {
             setSaving(false);
@@ -303,5 +338,6 @@ export function useCourseBuilder(courseId: string) {
         createQuiz,
         addQuizQuestion,
         createAssignment,
+        updateAssignment,
     };
 }

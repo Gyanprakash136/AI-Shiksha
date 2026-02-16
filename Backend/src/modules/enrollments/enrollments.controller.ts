@@ -47,6 +47,14 @@ export class EnrollmentsController {
     return this.enrollmentsService.checkEnrollment(req.user.userId, courseId);
   }
 
+  @Post(':courseId/accept-terms')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Accept terms and conditions for a course' })
+  acceptTerms(@Request() req, @Param('courseId') courseId: string) {
+    return this.enrollmentsService.acceptTerms(req.user.userId, courseId);
+  }
+
   // Admin endpoints
   @Get('stats')
   @UseGuards(AuthGuard('jwt'), RolesGuard)

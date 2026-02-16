@@ -190,6 +190,25 @@ export class UsersService {
     });
   }
 
+  async getLeaderboard() {
+    const topStudents = await this.prisma.user.findMany({
+      where: { role: 'STUDENT' },
+      orderBy: { xp: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        name: true,
+        avatar_url: true,
+        xp: true,
+      },
+    });
+
+    return topStudents.map((student, index) => ({
+      ...student,
+      rank: index + 1,
+    }));
+  }
+
   async getStudentStats() {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

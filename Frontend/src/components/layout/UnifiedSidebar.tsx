@@ -20,6 +20,9 @@ import {
   Plus,
   PanelLeftClose,
   PanelLeft,
+  Award,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -32,12 +35,18 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface NavItem {
   icon: React.ElementType;
   label: string;
   href: string;
   badge?: string;
+  children?: NavItem[];
 }
 
 const getNavItems = (role: UserRole): NavItem[] => {
@@ -55,19 +64,28 @@ const getNavItems = (role: UserRole): NavItem[] => {
       ];
     case "student":
       return [
-        { icon: LayoutDashboard, label: "Home", href: "/dashboard" },
-        { icon: GraduationCap, label: "My Learning", href: "/dashboard/my-courses" },
-        { icon: BookOpen, label: "Catalog", href: "/dashboard/catalog" },
-        { icon: FileText, label: "Assignments", href: "/dashboard/assignments" },
-        { icon: Trophy, label: "My Certificates", href: "/dashboard/my-certificates" },
-        { icon: Target, label: "Goals", href: "/dashboard/learning-path" },
-        { icon: MessageSquare, label: "Messages", href: "/dashboard/messages" },
-        { icon: ShoppingCart, label: "Cart", href: "/dashboard/cart" },
+        { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+        { icon: BookOpen, label: "My Courses", href: "/dashboard/my-courses" },
+        { icon: MessageSquare, label: "AI Assistant", href: "/dashboard/ai-assistant" },
+        { icon: Trophy, label: "Leaderboard", href: "/dashboard/leaderboard" },
+        { icon: Award, label: "Certificates", href: "/dashboard/certificates" },
+        { icon: DollarSign, label: "Transactions", href: "/dashboard/transactions" },
+        { icon: HelpCircle, label: "Support", href: "/dashboard/support" },
+        { icon: Settings, label: "Profile Settings", href: "/dashboard/settings" },
       ];
     case "admin":
       return [
         { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-        { icon: BookOpen, label: "All Courses", href: "/dashboard/courses" },
+        {
+          icon: BookOpen,
+          label: "Course Management",
+          href: "#",
+          children: [
+            { icon: BookOpen, label: "All Courses", href: "/dashboard/courses" },
+            { icon: FileText, label: "Assignments", href: "/dashboard/assignments" },
+            { icon: FileText, label: "Terms & Conditions", href: "/dashboard/system-settings/terms" },
+          ],
+        },
         { icon: Users, label: "User Management", href: "/dashboard/users" },
         { icon: DollarSign, label: "Revenue", href: "/dashboard/revenue" },
         { icon: BarChart3, label: "Analytics", href: "/dashboard/analytics" },
@@ -88,6 +106,7 @@ export function UnifiedSidebar() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { collapsed, setCollapsed } = useSidebarContext();
+  const [openSubmenus, setOpenSubmenus] = useState<string[]>(["Course Management"]);
 
   if (!user) return null;
 
@@ -98,10 +117,153 @@ export function UnifiedSidebar() {
     return location.pathname.startsWith(href);
   };
 
+  const toggleSubmenu = (label: string) => {
+    setOpenSubmenus((prev) =>
+      prev.includes(label)
+        ? prev.filter((item) => item !== label)
+        : [...prev, label]
+    );
+  };
+
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
+
+  const renderNavItem = (item: NavItem) => {
+    if (item.children) {
+      const isOpen = openSubmenus.includes(item.label);
+
+      if (collapsed) {
+        // When collapsed, just show the parent icon but maybe link to first child or show tooltip
+        // For simplicity in collapsed mode, we might just show the icon and maybe a popover. 
+        // Current implementation simplicity: Link to first child? Or keep it seemingly disabled?
+        // Let's just render the parent as a link to # but with tooltip.
+        // Better: When collapsed, we can't easily show submenus without a popover. 
+        // For now, let's render the children flat or just the parent icon.
+        // Actually, user requested submenu. Let's make it work in expanded mode primarily.
+        return (
+          <Collapsible
+            key={item.label}
+            open={isOpen}
+            onOpenChange={() => toggleSubmenu(item.label)}
+            className="w-full"
+          >
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-between hover:bg-white/10 hover:text-white mb-1",
+                  collapsed ? "justify-center px-0" : "px-3"
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 flex-shrink-0 text-white/60" />
+                  {!collapsed && <span className="text-white/60 font-medium">{item.label}</span>}
+                </div>
+                {!collapsed && (
+                  isOpen ? <ChevronDown className="h-4 w-4 text-white/60" /> : <ChevronRight className="h-4 w-4 text-white/60" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-1">
+              {item.children.map((child) => (
+                <Link
+                  key={child.href}
+                  to={child.href}
+                  className={cn(
+                    "flex items-center gap-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ml-9", // Indented
+                    isActive(child.href)
+                      ? "bg-white/15 text-white"
+                      : "text-white/60 hover:bg-white/10 hover:text-white"
+                  )}
+                >
+                  {!collapsed && <span className="flex-1">{child.label}</span>}
+                </Link>
+              ))}
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      }
+
+      return (
+        <Collapsible
+          key={item.label}
+          open={isOpen}
+          onOpenChange={() => toggleSubmenu(item.label)}
+          className="w-full"
+        >
+          <CollapsibleTrigger asChild>
+            <div
+              className={cn(
+                "flex items-center cursor-pointer justify-between gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 text-white/60 hover:bg-white/10 hover:text-white",
+                collapsed ? "justify-center px-2" : ""
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <item.icon className="h-5 w-5 flex-shrink-0" />
+                {!collapsed && <span className="flex-1 text-left">{item.label}</span>}
+              </div>
+              {!collapsed && (
+                isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />
+              )}
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="space-y-1 mt-1">
+            {item.children.map(child => (
+              <Link
+                key={child.href}
+                to={child.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ml-4 border-l border-white/10",
+                  isActive(child.href)
+                    ? "bg-white/15 text-white"
+                    : "text-white/60 hover:bg-white/10 hover:text-white",
+                )}
+              >
+                <span className="flex-1">{child.label}</span>
+              </Link>
+            ))}
+          </CollapsibleContent>
+        </Collapsible>
+      );
+    }
+
+    return (
+      <Tooltip key={item.href} delayDuration={0}>
+        <TooltipTrigger asChild>
+          <Link
+            to={item.href}
+            className={cn(
+              "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
+              isActive(item.href)
+                ? "bg-white/15 text-white"
+                : "text-white/60 hover:bg-white/10 hover:text-white",
+              collapsed ? "justify-center px-2" : ""
+            )}
+          >
+            <item.icon className="h-5 w-5 flex-shrink-0" />
+            {!collapsed && (
+              <>
+                <span className="flex-1">{item.label}</span>
+                {item.badge && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs text-white">
+                    {item.badge}
+                  </span>
+                )}
+              </>
+            )}
+          </Link>
+        </TooltipTrigger>
+        {collapsed && (
+          <TooltipContent side="right" className="font-medium">
+            {item.label}
+          </TooltipContent>
+        )}
+      </Tooltip>
+    );
+  };
+
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
@@ -157,39 +319,7 @@ export function UnifiedSidebar() {
       {/* Main Navigation */}
       <ScrollArea className="flex-1 p-3">
         <nav className="space-y-1">
-          {navItems.map((item) => (
-            <Tooltip key={item.href} delayDuration={0}>
-              <TooltipTrigger asChild>
-                <Link
-                  to={item.href}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
-                    isActive(item.href)
-                      ? "bg-white/15 text-white"
-                      : "text-white/60 hover:bg-white/10 hover:text-white",
-                    collapsed ? "justify-center px-2" : ""
-                  )}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  {!collapsed && (
-                    <>
-                      <span className="flex-1">{item.label}</span>
-                      {item.badge && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs text-white">
-                          {item.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                </Link>
-              </TooltipTrigger>
-              {collapsed && (
-                <TooltipContent side="right" className="font-medium">
-                  {item.label}
-                </TooltipContent>
-              )}
-            </Tooltip>
-          ))}
+          {navItems.map(renderNavItem)}
         </nav>
       </ScrollArea>
 
@@ -205,33 +335,12 @@ export function UnifiedSidebar() {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <div className="border-t border-white/10 p-3 flex-shrink-0">
-        {bottomNav.map((item) => (
-          <Tooltip key={item.href} delayDuration={0}>
-            <TooltipTrigger asChild>
-              <Link
-                to={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
-                  isActive(item.href)
-                    ? "bg-white/15 text-white"
-                    : "text-white/60 hover:bg-white/10 hover:text-white",
-                  collapsed ? "justify-center px-2" : ""
-                )}
-              >
-                <item.icon className="h-5 w-5 flex-shrink-0" />
-                {!collapsed && <span>{item.label}</span>}
-              </Link>
-            </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side="right" className="font-medium">
-                {item.label}
-              </TooltipContent>
-            )}
-          </Tooltip>
-        ))}
-      </div>
+      {/* Bottom Navigation - Hide for Students */}
+      {user.role !== "student" && (
+        <div className="border-t border-white/10 p-3 flex-shrink-0">
+          {bottomNav.map(renderNavItem)}
+        </div>
+      )}
 
       {/* User Profile */}
       <div className="border-t border-white/10 p-3 flex-shrink-0">

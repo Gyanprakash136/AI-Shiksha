@@ -61,10 +61,17 @@ import CertificateTemplatesPage from "./pages/admin/CertificateTemplates";
 
 // Student Pages
 import MyCertificatesPage from "./pages/student/MyCertificates";
+import AIAssistant from "./pages/student/AIAssistant";
+import Leaderboard from "./pages/student/Leaderboard";
+import Transactions from "./pages/student/Transactions";
+import Support from "./pages/student/Support";
+import { EnrolledCourseView } from "./pages/course/EnrolledCourseView";
+import { ManageTerms } from "./pages/admin/ManageTerms";
 
 // Quiz Pages
 import QuizManagement from "./pages/admin/QuizManagement";
 import QuizCreator from "./pages/admin/QuizCreator";
+import AdminAssignments from "./pages/admin/AdminAssignments";
 
 // Course Pages
 import CourseDetailPage from "./pages/course/CourseDetail";
@@ -72,7 +79,6 @@ import LessonPlayer from "./pages/learn/LessonPlayer";
 
 // Public Course Pages
 import PublicCourseCatalog from "./pages/PublicCourseCatalog";
-import PublicCourseView from "./pages/PublicCourseView";
 
 // Course Learning (legacy)
 import CourseLearn from "./pages/course/CourseLearn";
@@ -116,7 +122,7 @@ const App = () => (
                 <Route path="/dashboard" element={<UnifiedDashboardPage />} />
 
                 {/* Unified Dashboard - Main */}
-                <Route path="/dashboard" element={<UnifiedDashboardPage />} />
+
 
               // ...
 
@@ -125,6 +131,9 @@ const App = () => (
                 <Route path="/dashboard/courses" element={<CourseManagement />} />
                 <Route path="/dashboard/courses/new" element={<CreateCourseRedirect />} />
                 <Route path="/dashboard/courses/:courseId/edit" element={<CourseBuilder />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/dashboard/assignments" element={<AdminAssignments />} />
+                </Route>
                 <Route path="/dashboard/quizzes" element={<QuizManagement />} />
                 <Route path="/dashboard/quizzes/new" element={<QuizCreator />} />
                 <Route path="/dashboard/quizzes/:id/edit" element={<QuizCreator />} />
@@ -132,6 +141,10 @@ const App = () => (
                 <Route path="/dashboard/settings" element={<Settings />} />
                 <Route path="/dashboard/messages" element={<Messages />} />
                 <Route path="/dashboard/certificates" element={<Certificates />} />
+                <Route path="/dashboard/ai-assistant" element={<AIAssistant />} />
+                <Route path="/dashboard/leaderboard" element={<Leaderboard />} />
+                <Route path="/dashboard/transactions" element={<Transactions />} />
+                <Route path="/dashboard/support" element={<Support />} />
                 <Route path="/dashboard/users" element={<UsersPage />} />
                 <Route path="/dashboard/moderation" element={<Moderation />} />
 
@@ -146,7 +159,7 @@ const App = () => (
                 <Route path="/dashboard/ai-moderation" element={<AIControlPage />} />
                 <Route path="/dashboard/ai-insights" element={<AIControlPage />} />
                 <Route path="/dashboard/revenue" element={<RevenuePage />} />
-                <Route path="/dashboard/transactions" element={<RevenuePage />} />
+                <Route path="/dashboard/revenue" element={<RevenuePage />} />
                 <Route path="/dashboard/payouts" element={<PayoutsPage />} />
                 <Route path="/dashboard/coupons" element={<CouponsPage />} />
                 <Route path="/dashboard/subscriptions" element={<RevenuePage />} />
@@ -172,12 +185,14 @@ const App = () => (
                 <Route path="/dashboard/system-status" element={<SystemStatusPage />} />
                 <Route path="/dashboard/certificate-templates" element={<CertificateTemplatesPage />} />
                 <Route path="/dashboard/my-certificates" element={<MyCertificatesPage />} />
+                <Route path="/dashboard/system-settings/terms" element={<ManageTerms />} />
 
                 {/* Unified Layout Routes */}
                 <Route element={<UnifiedLayout />}>
                   {/* Public Course Pages */}
                   <Route path="/courses" element={<PublicCourseCatalog />} />
                   <Route path="/courses/:slug" element={<CoursePreview />} />
+                  <Route path="/course/:slug/view" element={<EnrolledCourseView />} />
                   <Route path="/dashboard/courses/:slug/preview" element={<CoursePreview />} />
 
                   {/* E-commerce */}
@@ -186,8 +201,8 @@ const App = () => (
                   <Route path="/order-success" element={<OrderSuccess />} />
                 </Route>
 
-                {/* Learning Player (Fullscreen) */}
-                <Route path="/learn/:courseId/lesson/:lessonId" element={<LessonPlayer />} />
+                {/* Learning Player (Fullscreen) - using SEO-friendly slugs */}
+                <Route path="/learn/:courseSlug/lesson/:lessonSlug" element={<LessonPlayer />} />
 
                 {/* Catch all */}
                 <Route path="*" element={<Navigate to="/" replace />} />

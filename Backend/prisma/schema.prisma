@@ -23,6 +23,7 @@ model User {
   bio           String?
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
+  xp            Int      @default(0)
 
   instructor_profile InstructorProfile?
   enrollments        Enrollment[]
@@ -33,18 +34,37 @@ model User {
   certificates       Certificate[]
   ai_conversations   AIConversation[]
   approved_courses   Course[]           @relation("ApprovedCourses") // Courses this admin approved
-  cart_items         CartItem[]         // Shopping cart
+  cart_items         CartItem[] // Shopping cart
 
   // Course Builder relations
-  quiz_submissions       QuizSubmission[]
-  assignment_submissions AssignmentSubmission[]
-  graded_assignments     AssignmentSubmission[]     @relation("GradedAssignments")
-  created_certificate_templates CertificateTemplate[] @relation("CreatedCertificateTemplates")
+  quiz_submissions              QuizSubmission[]
+  assignment_submissions        AssignmentSubmission[]
+  graded_assignments            AssignmentSubmission[] @relation("GradedAssignments")
+  created_certificate_templates CertificateTemplate[]  @relation("CreatedCertificateTemplates")
 
   // Refresh token rotation
   refresh_token_hash String?
 
+  // Student Dashboard Features
+  weekly_goal_hours     Int                   @default(0)
+  weekly_minutes_spent  Int                   @default(0)
+  milestones            Milestone[]
+  sectionItemProgresses SectionItemProgress[]
+
   @@map("users")
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  student_id  String
+  student     User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  title       String
+  target_date DateTime?
+  completed   Boolean   @default(false)
+  created_at  DateTime  @default(now())
+  updated_at  DateTime  @updatedAt
+
+  @@map("milestones")
 }
 
 model InstructorProfile {
@@ -78,9 +98,9 @@ model Course {
   intro_video_url String?
 
   // Course Details
-  price    Float   @default(0)
-  level    String? // Beginner, Intermediate, Advanced
-  language String? @default("English")
+  price             Float   @default(0)
+  level             String? // Beginner, Intermediate, Advanced
+  language          String? @default("English")
   learning_outcomes Json? // Array of learning outcomes
 
   // Approval Workflow
@@ -111,7 +131,7 @@ model Course {
   certificate_template_id String?
   certificate_title       String?
   certificate_description String?
-  course_features         Json?   // Customizable features: downloadable_resources, lifetime_access, mobile_access, etc.
+  course_features         Json? // Customizable features: downloadable_resources, lifetime_access, mobile_access, etc.
 
   // SEO Settings
   meta_title       String?
@@ -122,19 +142,19 @@ model Course {
   updated_at DateTime @updatedAt
 
   // Relations
-  certificate_template CertificateTemplate?  @relation("CourseCertificateTemplate", fields: [certificate_template_id], references: [id], onDelete: SetNull)
-  sections         CourseSection[] // New: replaces modules
-  modules          Module[] // Keep for backward compatibility
-  enrollments      Enrollment[]
-  payments         Payment[]
-  reviews          Review[]
-  certificates     Certificate[]
-  course_progress  CourseProgress[]
-  ai_conversations AIConversation[]
-  tags             CourseTag[]
-  prerequisites    CoursePrerequisite[] @relation("CoursePrerequisites")
-  prerequisite_for CoursePrerequisite[] @relation("PrerequisiteFor")
-  cart_items       CartItem[]           // Shopping cart
+  certificate_template CertificateTemplate? @relation("CourseCertificateTemplate", fields: [certificate_template_id], references: [id], onDelete: SetNull)
+  sections             CourseSection[] // New: replaces modules
+  modules              Module[] // Keep for backward compatibility
+  enrollments          Enrollment[]
+  payments             Payment[]
+  reviews              Review[]
+  certificates         Certificate[]
+  course_progress      CourseProgress[]
+  ai_conversations     AIConversation[]
+  tags                 CourseTag[]
+  prerequisites        CoursePrerequisite[] @relation("CoursePrerequisites")
+  prerequisite_for     CoursePrerequisite[] @relation("PrerequisiteFor")
+  cart_items           CartItem[] // Shopping cart
 
   @@map("courses")
 }
@@ -209,17 +229,19 @@ model Lesson {
 }
 
 model Enrollment {
-  id                   String    @id @default(uuid())
-  student_id           String
-  user                 User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  course_id            String
-  course               Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  payment_id           String?   @unique
-  status               String    @default("active") // active, completed, cancelled
-  enrolled_at          DateTime  @default(now())
-  progress_percentage  Int       @default(0) // 0-100
-  completed_at         DateTime? // When the course was completed
-  last_activity_at     DateTime? // Last time the student accessed the course
+  id                  String    @id @default(uuid())
+  student_id          String
+  user                User      @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id           String
+  course              Course    @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  payment_id          String?   @unique
+  status              String    @default("active") // active, completed, cancelled
+  enrolled_at         DateTime  @default(now())
+  progress_percentage Int       @default(0) // 0-100
+  completed_at        DateTime? // When the course was completed
+  last_activity_at    DateTime? // Last time the student accessed the course
+  terms_accepted      Boolean   @default(false)
+  terms_accepted_at   DateTime?
 
   @@unique([student_id, course_id])
   @@map("enrollments")
@@ -269,15 +291,16 @@ model LessonProgress {
 }
 
 model CourseProgress {
-  id                  String   @id @default(uuid())
-  student_id          String
-  user                User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
-  course_id           String
-  course              Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
-  progress_percentage Float    @default(0)
-  completed           Boolean  @default(false)
-  last_accessed_at    DateTime @default(now())
-  updated_at          DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  student_id            String
+  user                  User     @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  course_id             String
+  course                Course   @relation(fields: [course_id], references: [id], onDelete: Cascade)
+  progress_percentage   Float    @default(0)
+  completed             Boolean  @default(false)
+  last_accessed_at      DateTime @default(now())
+  last_accessed_item_id String?
+  updated_at            DateTime @updatedAt
 
   @@unique([student_id, course_id])
   @@map("course_progress")
@@ -327,7 +350,7 @@ model CertificateTemplate {
   name              String
   description       String?
   is_default        Boolean  @default(false)
-  template_config   Json     // Stores template design configuration
+  template_config   Json // Stores template design configuration
   preview_image_url String?
   created_by        String?
   creator           User?    @relation("CreatedCertificateTemplates", fields: [created_by], references: [id], onDelete: SetNull)
@@ -408,6 +431,7 @@ model SectionItem {
 
   type             String // LECTURE, QUIZ, ASSIGNMENT, RESOURCE
   title            String
+  slug             String? // SEO-friendly URL slug, optional for backwards compatibility
   description      String? @db.Text
   order_index      Int
   duration_minutes Int? // Estimated time to complete
@@ -418,13 +442,15 @@ model SectionItem {
   updated_at DateTime @updatedAt
 
   lecture_content LectureContent?
-  
+
   // Quiz Relation (Refactored)
-  quiz_id         String?
-  quiz            Quiz?   @relation(fields: [quiz_id], references: [id])
+  quiz_id String?
+  quiz    Quiz?   @relation(fields: [quiz_id], references: [id])
 
-  assignment      Assignment?
+  assignment            Assignment?
+  sectionItemProgresses SectionItemProgress[]
 
+  @@unique([section_id, slug]) // Slug must be unique within a section
   @@map("section_items")
 }
 
@@ -459,10 +485,10 @@ model LectureContent {
 }
 
 model Quiz {
-  id          String   @id @default(uuid())
+  id          String  @id @default(uuid())
   title       String
-  description String?  @db.Text
-  
+  description String? @db.Text
+
   // Settings
   passing_score       Int     @default(75) // Percentage (User requirement: 75%)
   time_limit_minutes  Int? // Optional time limit
@@ -470,10 +496,10 @@ model Quiz {
   randomize_questions Boolean @default(false)
   show_answers        Boolean @default(true) // Show correct answers after submission
   auto_grade          Boolean @default(true)
-  
+
   // Set Logic
-  total_sets          Int     @default(1)
-  questions_per_set   Int     @default(10)
+  total_sets        Int @default(1)
+  questions_per_set Int @default(10)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -495,8 +521,8 @@ model QuizQuestion {
   question_image_url String?
   points             Int     @default(1)
   order_index        Int
-  
-  set_number         Int     @default(1) // Which set this question belongs to
+
+  set_number Int @default(1) // Which set this question belongs to
 
   // JSON arrays for options and answers
   options         String? @db.Text // JSON array ["Option A", "Option B", ...]
@@ -584,4 +610,27 @@ model CoursePrerequisite {
 
   @@unique([course_id, prerequisite_course_id])
   @@map("course_prerequisites")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   @db.Text
+  description String?
+  updated_at  DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model SectionItemProgress {
+  id           String      @id @default(uuid())
+  student_id   String
+  user         User        @relation(fields: [student_id], references: [id], onDelete: Cascade)
+  item_id      String
+  item         SectionItem @relation(fields: [item_id], references: [id], onDelete: Cascade)
+  completed    Boolean     @default(false)
+  completed_at DateTime?
+  updated_at   DateTime    @updatedAt
+
+  @@unique([student_id, item_id])
+  @@map("section_item_progress")
 }

@@ -64,6 +64,29 @@ export class EnrollmentsService {
     });
   }
 
+  async acceptTerms(studentId: string, courseId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: {
+        student_id_course_id: {
+          student_id: studentId,
+          course_id: courseId,
+        },
+      },
+    });
+
+    if (!enrollment) {
+      throw new NotFoundException('Enrollment not found');
+    }
+
+    return this.prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: {
+        terms_accepted: true,
+        terms_accepted_at: new Date(),
+      },
+    });
+  }
+
   // Admin methods
   async findAll(search?: string, status?: string) {
     const where: any = {};

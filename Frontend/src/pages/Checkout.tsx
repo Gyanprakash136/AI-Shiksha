@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { CreditCard, Lock, ShoppingBag, CheckCircle, Loader2, Tag, ArrowLeft } from "lucide-react";
 import { useCart } from "../contexts/CartContext";
 import { toast } from "sonner";
+import { transactionsService } from "@/lib/api/transactionsService";
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -33,13 +34,22 @@ export default function Checkout() {
     }
 
     setProcessing(true);
-    // Simulate payment processing
-    setTimeout(() => {
-      setProcessing(false);
+    try {
+      await transactionsService.createTransaction({
+        courseIds: items.map(item => item.course.id),
+        amount: total,
+        paymentMethod: paymentMethod // 'card' or 'upi'
+      });
+
       clearCart();
       toast.success("Payment successful! 🎉");
       navigate("/order-success");
-    }, 2000);
+    } catch (error) {
+      console.error(error);
+      toast.error("Payment failed. Please try again.");
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (items.length === 0) {

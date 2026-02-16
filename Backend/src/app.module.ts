@@ -24,6 +24,12 @@ import { CompletionsModule } from './modules/completions/completions.module';
 
 import { CertificateTemplatesModule } from './modules/certificate-templates/certificate-templates.module';
 import { UploadModule } from './modules/upload/upload.module';
+import { SupportModule } from './modules/support/support.module';
+import { StudentsModule } from './modules/students/students.module';
+import { LeaderboardModule } from './modules/leaderboard/leaderboard.module';
+import { CertificatesModule } from './modules/certificates/certificates.module';
+import { TransactionsModule } from './modules/transactions/transactions.module';
+import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
 
 @Module({
   imports: [
@@ -53,6 +59,12 @@ import { UploadModule } from './modules/upload/upload.module';
     CompletionsModule,
     CertificateTemplatesModule,
     UploadModule,
+    SupportModule,
+    StudentsModule,
+    LeaderboardModule,
+    CertificatesModule,
+    TransactionsModule,
+    SystemSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

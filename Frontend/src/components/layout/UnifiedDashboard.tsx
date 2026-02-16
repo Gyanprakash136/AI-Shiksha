@@ -3,7 +3,8 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { UnifiedSidebar } from "./UnifiedSidebar";
 import { UnifiedTopBar } from "./UnifiedTopBar";
-import UnifiedNavbar from "./UnifiedNavbar";
+import { StudentNavbar } from "@/components/dashboard/student/StudentNavbar";
+
 import { useSidebarContext } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 
@@ -30,13 +31,16 @@ export function UnifiedDashboard({ children, title, subtitle }: UnifiedDashboard
       <UnifiedSidebar />
       <div
         className={cn(
-          "flex flex-1 flex-col transition-all duration-300 ease-in-out pt-16",
+          "flex flex-1 flex-col transition-all duration-300 ease-in-out",
           collapsed ? "md:pl-[70px]" : "md:pl-[260px]"
         )}
       >
-        <UnifiedNavbar />
-        {/* <UnifiedTopBar title={title} subtitle={subtitle} /> */}
-        <main className="flex-1 p-4 md:p-6">
+        {/* Global Student Topbar */}
+        <div className="bg-white border-b border-gray-100 px-6 py-3 sticky top-0 z-50">
+          <StudentNavbar />
+        </div>
+
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
           {children}
         </main>
       </div>

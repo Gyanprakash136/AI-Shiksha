@@ -84,6 +84,8 @@ export default {
           4: "hsl(var(--chart-4))",
           5: "hsl(var(--chart-5))",
         },
+        "lms-blue": "#0056D2", // Added to fix visibility issues
+        "lms-blue-hover": "#0041a3",
       },
       borderRadius: {
         lg: "var(--radius)",

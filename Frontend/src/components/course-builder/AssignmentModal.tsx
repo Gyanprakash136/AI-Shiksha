@@ -24,9 +24,18 @@ interface AssignmentModalProps {
     onOpenChange: (open: boolean) => void;
     item: SectionItem;
     onSave: (itemId: string, updates: Partial<SectionItem>) => Promise<void>;
+    onCreateAssignment: (itemId: string, data: any) => Promise<any>;
+    onUpdateAssignment: (assignmentId: string, data: any) => Promise<any>;
 }
 
-export function AssignmentModal({ open, onOpenChange, item, onSave }: AssignmentModalProps) {
+export function AssignmentModal({
+    open,
+    onOpenChange,
+    item,
+    onSave,
+    onCreateAssignment,
+    onUpdateAssignment
+}: AssignmentModalProps) {
     const [loading, setLoading] = useState(false);
 
     const [title, setTitle] = useState(item.title);
@@ -36,24 +45,64 @@ export function AssignmentModal({ open, onOpenChange, item, onSave }: Assignment
     const [deadline, setDeadline] = useState<Date | undefined>(undefined);
     const [maxFileSize, setMaxFileSize] = useState(10);
     const [allowedTypes, setAllowedTypes] = useState('pdf, docx, zip');
+    const [submissionType, setSubmissionType] = useState('FILE'); // FILE, TEXT, CODE
+    const [maxPoints, setMaxPoints] = useState(100);
 
     useEffect(() => {
         if (open) {
             setTitle(item.title);
             setDescription(item.description || '');
-            // Load backend details
+
+            // Load backend details if assignment exists
+            if (item.assignment) {
+                if (item.assignment.deadline) setDeadline(new Date(item.assignment.deadline));
+                if (item.assignment.max_file_size_mb) setMaxFileSize(item.assignment.max_file_size_mb);
+
+                if (item.assignment.allowed_file_types) {
+                    const types = item.assignment.allowed_file_types as any;
+                    if (typeof types === 'string') {
+                        try {
+                            const parsed = JSON.parse(types);
+                            setAllowedTypes(Array.isArray(parsed) ? parsed.join(', ') : String(parsed));
+                        } catch (e) {
+                            setAllowedTypes(types);
+                        }
+                    } else if (Array.isArray(types)) {
+                        setAllowedTypes(types.join(', '));
+                    }
+                }
+
+                if (item.assignment.submission_type) setSubmissionType(item.assignment.submission_type);
+            }
         }
     }, [open, item]);
 
     const handleSave = async () => {
         setLoading(true);
         try {
+            // 1. Save generic item details
             await onSave(item.id, {
                 title,
                 description,
-                // In a real app, save assignment specific fields to Assignment table via API
             });
+
+            // 2. Save assignment specific details
+            const assignmentData = {
+                deadline: deadline ? deadline.toISOString() : null,
+                max_file_size_mb: maxFileSize,
+                allowed_file_types: allowedTypes.split(',').map(t => t.trim()).filter(Boolean),
+                submission_type: submissionType,
+            };
+
+            if (item.assignment?.id) {
+                await onUpdateAssignment(item.assignment.id, assignmentData);
+            } else {
+                await onCreateAssignment(item.id, assignmentData);
+            }
+
             onOpenChange(false);
+        } catch (error) {
+            console.error("Failed to save assignment", error);
         } finally {
             setLoading(false);
         }
@@ -97,7 +146,7 @@ export function AssignmentModal({ open, onOpenChange, item, onSave }: Assignment
                                         {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
+                                <PopoverContent className="w-auto p-0 z-[200]">
                                     <Calendar
                                         mode="single"
                                         selected={deadline}
@@ -106,6 +155,19 @@ export function AssignmentModal({ open, onOpenChange, item, onSave }: Assignment
                                     />
                                 </PopoverContent>
                             </Popover>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Submission Type</Label>
+                            <select
+                                className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                                value={submissionType}
+                                onChange={(e) => setSubmissionType(e.target.value)}
+                            >
+                                <option value="FILE">File Upload</option>
+                                <option value="TEXT">Text / Link</option>
+                                <option value="CODE">Code Snippet</option>
+                            </select>
                         </div>
 
                         <div className="space-y-2">

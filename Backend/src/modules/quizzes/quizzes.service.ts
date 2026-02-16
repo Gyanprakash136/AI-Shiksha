@@ -119,11 +119,21 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
+    // Helper for safe JSON parsing
+    const safeParse = (data: string | null) => {
+      if (!data) return [];
+      try {
+        return JSON.parse(data);
+      } catch {
+        return typeof data === 'string' ? data.split(',').map(s => s.trim()).filter(s => s) : [];
+      }
+    };
+
     // Parse JSON fields for frontend
     const questions = quiz.questions.map(q => ({
       ...q,
-      options: q.options ? JSON.parse(q.options) : [],
-      correct_answers: q.correct_answers ? JSON.parse(q.correct_answers) : []
+      options: safeParse(q.options),
+      correct_answers: safeParse(q.correct_answers)
     }));
 
     return { ...quiz, questions };
@@ -199,7 +209,8 @@ export class QuizzesService {
       throw new NotFoundException('Quiz not found');
     }
 
-    // Check attempts limit
+    // Check attempts limit and determine current set
+    let currentSet = 1;
     if (quiz.attempts_allowed > 0) {
       const previousAttempts = await this.prisma.quizSubmission.count({
         where: {
@@ -211,36 +222,94 @@ export class QuizzesService {
       if (previousAttempts >= quiz.attempts_allowed) {
         throw new BadRequestException('Maximum attempts reached');
       }
+
+      // Determine Set Logic: (failedAttempts % totalSets) + 1
+      // We need to know how many failed attempts.
+      // NOTE: We could just query failed attempts, but count is cheaper if we assume all prev attempts failed? 
+      // Better to query failed specifically.
+      const failedAttemptsCount = await this.prisma.quizSubmission.count({
+        where: {
+          quiz_id: quizId,
+          student_id: studentId,
+          passed: false
+        }
+      });
+
+      const totalSets = quiz.total_sets || 1;
+      currentSet = (failedAttemptsCount % totalSets) + 1;
     }
 
-    // Select questions based on logic (if we had Set logic fully implemented here)
-    // For now, grading all questions returned.
-    // Ensure we parse questions for grading
-    const questions = quiz.questions.map(q => ({
-      ...q,
-      correct_answers: q.correct_answers ? JSON.parse(q.correct_answers) : []
-    }));
+    // Helper for safe JSON parsing
+    const safeParse = (data: string | null) => {
+      if (!data) return [];
+      try {
+        return JSON.parse(data);
+      } catch {
+        // Handle plain string case "A,B"
+        return typeof data === 'string' ? data.split(',').map(s => s.trim()).filter(s => s) : [];
+      }
+    };
+
+    // Filter questions for the active set and parse answers
+    const questions = quiz.questions
+      .filter(q => (q.set_number || 1) === currentSet)
+      .map(q => ({
+        ...q,
+        correct_answers: safeParse(q.correct_answers)
+      }));
 
     // Auto-grade if enabled
     let score: number | null = null;
     let passed = false;
 
     if (quiz.auto_grade) {
-      const gradeResult = this.gradeQuiz(questions, dto.answers);
+      const gradeResult = this.gradeQuiz(questions, dto.answers || {});
       score = gradeResult.score;
       passed = score >= quiz.passing_score;
     }
+
+    // Debug Log (remove in prod)
+    // console.log(`Grading Quiz ${quizId} for User ${studentId}. Set: ${currentSet}. Questions: ${questions.length}. Score: ${score}`);
 
     const submission = await this.prisma.quizSubmission.create({
       data: {
         quiz_id: quizId,
         student_id: studentId,
-        answers: JSON.stringify(dto.answers),
+        answers: JSON.stringify(dto.answers || {}),
         score,
         passed,
         time_taken_minutes: dto.time_taken_minutes,
       },
     });
+
+    // Also update Section Item Progress to completed if passed
+    if (passed) {
+      // Find section item for this quiz
+      const sectionItem = await this.prisma.sectionItem.findFirst({
+        where: { quiz_id: quizId }
+      });
+
+      if (sectionItem) {
+        await this.prisma.sectionItemProgress.upsert({
+          where: {
+            student_id_item_id: {
+              student_id: studentId,
+              item_id: sectionItem.id
+            }
+          },
+          create: {
+            student_id: studentId,
+            item_id: sectionItem.id,
+            completed: true,
+            completed_at: new Date()
+          },
+          update: {
+            completed: true,
+            completed_at: new Date()
+          }
+        });
+      }
+    }
 
     return {
       ...submission,
@@ -248,18 +317,17 @@ export class QuizzesService {
     };
   }
 
-  private gradeQuiz(questions: any[], studentAnswers: Record<string, any>) {
+  private gradeQuiz(questions: any[], studentAnswers: Record<string, any> = {}) {
     let totalPoints = 0;
     let earnedPoints = 0;
 
     questions.forEach((question) => {
       // In a real set-based exam, we should only grade questions that were in the set.
-      // Assuming frontend sends answers for all questions in the set.
-      if (!studentAnswers.hasOwnProperty(question.id)) {
-        // If question was not answered, it counts as 0 points but adds to totalPoints
-        // unless it wasn't part of the set. 
-        // Implementation detail: we assume questions passed here ARE the questions in the exam.
-      }
+      // Assuming frontend sends answers for all questions in the active set.
+
+      // If the question is not in the set (filtered before passing here), loop won't run for it?
+      // Actually 'questions' passed here are ALREADY filtered in submitQuiz. 
+      // So we just sum them up.
 
       totalPoints += question.points;
 

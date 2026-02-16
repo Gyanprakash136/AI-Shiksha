@@ -101,13 +101,15 @@ const adminNavItems: NavItem[] = [
     label: "Course Management",
     children: [
       { icon: BookOpen, label: "All Courses", href: "/dashboard/courses" },
+      { icon: FileText, label: "Assignments", href: "/dashboard/assignments" },
       { icon: HelpCircle, label: "Quizzes", href: "/dashboard/quizzes" },
       { icon: Plus, label: "Add Course", href: "/dashboard/courses/new" },
       { icon: Folder, label: "Categories", href: "/dashboard/categories" },
       { icon: UserCog, label: "Enrollment", href: "/dashboard/enrollment" },
       { icon: Award, label: "Certificate Templates", href: "/dashboard/certificate-templates" },
       { icon: CheckSquare, label: "Completion", href: "/dashboard/completion" },
-      { icon: FileCheck, label: "Course Approval", href: "/dashboard/course-approval", badge: "5", badgeColor: "bg-destructive" },
+      { icon: FileCheck, label: "Course Approval", href: "/dashboard/course-approval" },
+      { icon: ScrollText, label: "Terms & Conditions", href: "/dashboard/system-settings/terms" },
     ],
   },
   {

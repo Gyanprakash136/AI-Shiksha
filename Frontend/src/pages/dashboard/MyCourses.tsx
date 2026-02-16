@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -12,186 +11,168 @@ import {
   Clock,
   BookOpen,
   CheckCircle2,
-  Filter,
+  Calendar,
+  Loader2,
+  ArrowRight
 } from "lucide-react";
 import { UnifiedDashboard } from "@/components/layout/UnifiedDashboard";
-
-const enrolledCourses = [
-  {
-    id: "1",
-    title: "Complete Web Development Bootcamp",
-    instructor: "John Smith",
-    thumbnail: "https://images.unsplash.com/photo-1593720213428-28a5b9e94613?w=400&h=225&fit=crop",
-    progress: 68,
-    totalLessons: 45,
-    completedLessons: 31,
-    duration: "42h 30m",
-    lastAccessed: "2 hours ago",
-    category: "Development",
-  },
-  {
-    id: "2",
-    title: "Advanced React & TypeScript",
-    instructor: "Sarah Johnson",
-    thumbnail: "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=400&h=225&fit=crop",
-    progress: 35,
-    totalLessons: 32,
-    completedLessons: 11,
-    duration: "28h 15m",
-    lastAccessed: "1 day ago",
-    category: "Development",
-  },
-  {
-    id: "3",
-    title: "UI/UX Design Fundamentals",
-    instructor: "Mike Chen",
-    thumbnail: "https://images.unsplash.com/photo-1561070791-2526d30994b5?w=400&h=225&fit=crop",
-    progress: 100,
-    totalLessons: 24,
-    completedLessons: 24,
-    duration: "18h 45m",
-    lastAccessed: "1 week ago",
-    category: "Design",
-  },
-  {
-    id: "4",
-    title: "Machine Learning Basics",
-    instructor: "Dr. Emily White",
-    thumbnail: "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=400&h=225&fit=crop",
-    progress: 12,
-    totalLessons: 38,
-    completedLessons: 5,
-    duration: "35h 20m",
-    lastAccessed: "3 days ago",
-    category: "Data Science",
-  },
-];
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { enrollmentService, EnrolledCourse } from "@/lib/api/enrollmentService";
 
 export default function MyCourses() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("all");
+  const [courses, setCourses] = useState<EnrolledCourse[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredCourses = enrolledCourses.filter((course) => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase());
+  useEffect(() => {
+    loadEnrollments();
+  }, []);
+
+  const loadEnrollments = async () => {
+    try {
+      const data = await enrollmentService.getMyEnrollments();
+      setCourses(data);
+    } catch (error) {
+      console.error('Error loading enrollments:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredCourses = courses.filter((course) => {
+    const matchesSearch = course.course.title.toLowerCase().includes(searchQuery.toLowerCase());
     if (activeTab === "all") return matchesSearch;
-    if (activeTab === "in-progress") return matchesSearch && course.progress > 0 && course.progress < 100;
-    if (activeTab === "completed") return matchesSearch && course.progress === 100;
+    if (activeTab === "in-progress") return matchesSearch && course.status === 'in_progress';
+    if (activeTab === "completed") return matchesSearch && course.status === 'completed';
     return matchesSearch;
   });
 
   return (
-    <UnifiedDashboard title="My Courses" subtitle="Continue learning where you left off">
-      <div className="p-6 space-y-6">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+    <UnifiedDashboard title="My Courses" subtitle="Manage your learning journey">
+      <div className="p-6 max-w-7xl mx-auto space-y-8 font-sans">
+
+        {/* Header Actions */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div>
+            <h2 className="text-2xl font-light text-[#1F1F1F]">My Learning</h2>
+            <p className="text-sm text-[#555555]">Track your progress and achievements</p>
+          </div>
           <Link to="/courses">
-            <Button className="bg-lms-blue hover:bg-lms-blue/90">
-              Browse More Courses
+            <Button className="bg-lms-blue hover:bg-lms-blue/90 text-white rounded-full px-6">
+              Browse Catalog
             </Button>
           </Link>
         </div>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search your courses..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
+        {/* Controls */}
+        <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full md:w-auto">
+            <TabsList className="bg-transparent p-0 gap-2">
+              <TabsTrigger value="all" className="rounded-full px-6 data-[state=active]:bg-[#1F1F1F] data-[state=active]:text-white text-gray-500 hover:text-gray-900 transition-all">All</TabsTrigger>
+              <TabsTrigger value="in-progress" className="rounded-full px-6 data-[state=active]:bg-[#1F1F1F] data-[state=active]:text-white text-gray-500 hover:text-gray-900 transition-all">In Progress</TabsTrigger>
+              <TabsTrigger value="completed" className="rounded-full px-6 data-[state=active]:bg-[#1F1F1F] data-[state=active]:text-white text-gray-500 hover:text-gray-900 transition-all">Completed</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <div className="flex gap-2 w-full md:w-auto">
+            <div className="relative flex-1 md:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search courses..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-gray-50 border-0 focus-visible:ring-1 focus-visible:ring-lms-blue/20 rounded-full"
+              />
+            </div>
           </div>
-          <Button variant="outline" className="gap-2">
-            <Filter className="h-4 w-4" />
-            Filter
-          </Button>
         </div>
 
-        {/* Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList>
-            <TabsTrigger value="all">All Courses ({enrolledCourses.length})</TabsTrigger>
-            <TabsTrigger value="in-progress">
-              In Progress ({enrolledCourses.filter(c => c.progress > 0 && c.progress < 100).length})
-            </TabsTrigger>
-            <TabsTrigger value="completed">
-              Completed ({enrolledCourses.filter(c => c.progress === 100).length})
-            </TabsTrigger>
-          </TabsList>
+        {/* Course List View */}
+        {filteredCourses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white border border-[#E1E1E1] rounded-2xl border-dashed">
+            <BookOpen className="h-12 w-12 text-gray-300 mb-4" />
+            <h3 className="text-lg font-medium text-[#1F1F1F]">No courses found</h3>
+            <p className="text-muted-foreground mb-4">Try adjusting your search or filters</p>
+            <Button variant="outline" onClick={() => { setSearchQuery(""); setActiveTab("all") }} className="rounded-full">Clear Filters</Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredCourses.map((course) => (
+              <div key={course.id} className="group bg-white rounded-2xl p-4 border border-gray-100 hover:border-gray-200 hover:shadow-lg transition-all duration-300 flex flex-col md:flex-row gap-6 items-center">
 
-          <TabsContent value={activeTab} className="mt-6">
-            {filteredCourses.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-medium">No courses found</h3>
-                  <p className="text-muted-foreground mb-4">Try adjusting your search or filters</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-6 md:grid-cols-2">
-                {filteredCourses.map((course) => (
-                  <Card key={course.id} className="overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="relative sm:w-48 h-32 sm:h-auto">
-                        <img
-                          src={course.thumbnail}
-                          alt={course.title}
-                          className="w-full h-full object-cover"
-                        />
-                        {course.progress === 100 && (
-                          <div className="absolute inset-0 bg-lms-emerald/80 flex items-center justify-center">
-                            <CheckCircle2 className="h-10 w-10 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <CardContent className="flex-1 p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <Badge variant="secondary" className="text-xs">
-                            {course.category}
-                          </Badge>
-                          <span className="text-xs text-muted-foreground">{course.lastAccessed}</span>
-                        </div>
-
-                        <h3 className="font-semibold text-foreground mb-1 line-clamp-2">
-                          {course.title}
-                        </h3>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          by {course.instructor}
-                        </p>
-
-                        <div className="space-y-2 mb-4">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-muted-foreground">Progress</span>
-                            <span className="font-medium">{course.progress}%</span>
-                          </div>
-                          <Progress value={course.progress} className="h-2" />
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <BookOpen className="h-3 w-3" />
-                              {course.completedLessons}/{course.totalLessons} lessons
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {course.duration}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Link to={`/course/${course.id}/learn`}>
-                          <Button size="sm" className="w-full gap-2 bg-lms-blue hover:bg-lms-blue/90">
-                            <Play className="h-4 w-4" />
-                            {course.progress === 100 ? "Review Course" : "Continue Learning"}
-                          </Button>
-                        </Link>
-                      </CardContent>
+                {/* Thumbnail */}
+                <div className="relative w-full md:w-48 h-32 flex-shrink-0 rounded-xl overflow-hidden">
+                  <img
+                    src={(course.course.thumbnail_url && !course.course.thumbnail_url.startsWith('blob:')) ? course.course.thumbnail_url : 'https://via.placeholder.com/1280x720?text=Course+Thumbnail'}
+                    alt={course.course.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-black/10 group-hover:bg-black/0 transition-colors" />
+                  {course.progress === 100 && (
+                    <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+                      <CheckCircle2 className="h-3 w-3" /> Done
                     </div>
-                  </Card>
-                ))}
+                  )}
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 flex flex-col justify-center min-w-0 w-full">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-bold text-lg text-[#1F1F1F] mb-1 group-hover:text-lms-blue transition-colors truncate">
+                        {course.course.title}
+                      </h3>
+                      <p className="text-sm text-black font-medium mb-2 flex items-center gap-2">
+                        {course.course.instructor.name}
+                      </p>
+                    </div>
+
+                  </div>
+
+                  <div className="flex items-center gap-6 mt-2 text-xs text-black font-medium">
+                    <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md">
+                      <Clock className="h-3.5 w-3.5 text-black" />
+                      <span>{course.course.duration}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 bg-gray-100 px-2 py-1 rounded-md">
+                      <BookOpen className="h-3.5 w-3.5 text-black" />
+                      <span>{course.completedLessons}/{course.course.totalLessons} Lessons</span>
+                    </div>
+                    {course.lastAccessedAt && (
+                      <div className="hidden sm:block text-gray-600">Last: {new Date(course.lastAccessedAt).toLocaleDateString()}</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress & Action */}
+                <div className="w-full md:w-48 flex-shrink-0 flex flex-col gap-3">
+                  {course.progress === 100 ? (
+                    <div className="text-center">
+                      <div className="text-sm font-medium text-green-600 mb-2">Completed {course.completionDate}</div>
+                      <Button variant="outline" className="w-full rounded-full border-green-200 text-green-700 hover:bg-green-50 hover:text-green-800">
+                        View Certificate
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="font-medium text-[#555555]">{course.progress}% Complete</span>
+                        </div>
+                        <Progress value={course.progress} className="h-2 bg-gray-100" indicatorClassName="bg-lms-blue" />
+                      </div>
+                      <Button className="w-full rounded-full bg-[#0056D2] hover:bg-[#00419e] text-white shadow-md shadow-blue-100 group-hover:shadow-blue-200 transition-all">
+                        {course.progress > 0 ? "Resume Learning" : "Start Course"} <ArrowRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
+                </div>
+
               </div>
-            )}
-          </TabsContent>
-        </Tabs>
+            ))}
+          </div>
+        )}
       </div>
     </UnifiedDashboard>
   );

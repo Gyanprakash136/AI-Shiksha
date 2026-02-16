@@ -19,7 +19,115 @@ import {
 
 @Injectable()
 export class SectionsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
+
+  // ========== SLUG UTILITIES ==========
+
+  /**
+   * Generate a URL-friendly slug from a title
+   */
+  private generateSlug(title: string): string {
+    return title
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s-]/g, '') // Remove special characters
+      .replace(/[\s_-]+/g, '-') // Replace spaces, underscores with single hyphen
+      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+  }
+
+  /**
+   * Ensure slug uniqueness within a section by appending numbers if needed
+   */
+  private async ensureUniqueSlug(
+    sectionId: string,
+    baseSlug: string,
+    excludeId?: string,
+  ): Promise<string> {
+    let slug = baseSlug;
+    let counter = 1;
+
+    while (true) {
+      const existing = await this.prisma.sectionItem.findFirst({
+        where: {
+          section_id: sectionId,
+          slug,
+          id: excludeId ? { not: excludeId } : undefined,
+        },
+      });
+
+      if (!existing) {
+        return slug;
+      }
+
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+  }
+
+  /**
+   * Find a section item by course slug and lesson slug
+   */
+  async findItemBySlug(courseSlug: string, lessonSlug: string, userId?: string) {
+    const progressInclude = userId
+      ? {
+        where: { student_id: userId },
+        select: { completed: true, completed_at: true },
+      }
+      : false;
+
+    const item = await this.prisma.sectionItem.findFirst({
+      where: {
+        slug: lessonSlug,
+        section: {
+          course: {
+            slug: courseSlug,
+          },
+        },
+      },
+      include: {
+        section: {
+          include: {
+            course: {
+              include: {
+                // Include enrollment for progress percentage
+                enrollments: userId ? { where: { student_id: userId } } : false,
+                // Include ALL sections and items for the course
+                sections: {
+                  include: {
+                    items: {
+                      orderBy: { order_index: 'asc' },
+                      include: {
+                        sectionItemProgresses: progressInclude,
+                      },
+                    },
+                  },
+                  orderBy: { order_index: 'asc' },
+                },
+              },
+            },
+          },
+        },
+        lecture_content: true,
+        quiz: {
+          include: {
+            questions: {
+              orderBy: { order_index: 'asc' },
+            },
+          },
+        },
+        assignment: true,
+        sectionItemProgresses: progressInclude,
+      },
+    });
+
+    if (!item) {
+      throw new NotFoundException(
+        `Lesson not found: ${courseSlug}/${lessonSlug}`,
+      );
+    }
+
+    return item;
+  }
 
   // ========== SECTION CRUD ==========
 
@@ -96,10 +204,18 @@ export class SectionsService {
   // ========== SECTION ITEM CRUD ==========
 
   async createItem(sectionId: string, dto: CreateSectionItemDto) {
+    // Auto-generate slug from title if not provided
+    let slug = dto.slug;
+    if (!slug && dto.title) {
+      const baseSlug = this.generateSlug(dto.title);
+      slug = await this.ensureUniqueSlug(sectionId, baseSlug);
+    }
+
     return this.prisma.sectionItem.create({
       data: {
         section_id: sectionId,
         ...dto,
+        slug,
       },
       include: {
         lecture_content: true,
@@ -110,9 +226,24 @@ export class SectionsService {
   }
 
   async updateItem(itemId: string, dto: UpdateSectionItemDto) {
+    // Regenerate slug if title changed
+    let slug = dto.slug;
+    if (!slug && dto.title) {
+      const item = await this.prisma.sectionItem.findUnique({
+        where: { id: itemId },
+      });
+      if (item) {
+        const baseSlug = this.generateSlug(dto.title);
+        slug = await this.ensureUniqueSlug(item.section_id, baseSlug, itemId);
+      }
+    }
+
     return this.prisma.sectionItem.update({
       where: { id: itemId },
-      data: dto,
+      data: {
+        ...dto,
+        slug: slug || dto.slug,
+      },
       include: {
         lecture_content: true,
         quiz: true,

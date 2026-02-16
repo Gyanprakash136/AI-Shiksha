@@ -59,6 +59,13 @@ export class UsersController {
     return this.usersService.getStudentDashboardStats(req.user.userId);
   }
 
+  @Get('leaderboard')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get student leaderboard' })
+  getLeaderboard() {
+    return this.usersService.getLeaderboard();
+  }
+
   @Get('stats/students')
   @Roles(Role.ADMIN)
   @ApiBearerAuth()

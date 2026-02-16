@@ -20,6 +20,10 @@ export class CreateSectionItemDto {
 
   @IsString()
   @IsOptional()
+  slug?: string; // Optional, will be auto-generated from title if not provided
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsInt()
@@ -48,6 +52,10 @@ export class UpdateSectionItemDto {
   @IsString()
   @IsOptional()
   title?: string;
+
+  @IsString()
+  @IsOptional()
+  slug?: string; // Optional, will be regenerated from title if title changes
 
   @IsString()
   @IsOptional()

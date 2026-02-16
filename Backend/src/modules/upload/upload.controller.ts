@@ -14,6 +14,7 @@ import { ApiTags, ApiConsumes, ApiBody, ApiOperation } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { Response } from 'express';
+import * as fs from 'fs';
 
 @ApiTags('Uploads')
 @Controller('upload')
@@ -22,7 +23,21 @@ export class UploadController {
     @UseInterceptors(
         FileInterceptor('file', {
             storage: diskStorage({
-                destination: './uploads',
+                destination: (req, file, cb) => {
+                    let folder = './uploads/Files';
+                    if (file.mimetype.startsWith('image/')) {
+                        folder = './uploads/Image';
+                    } else if (file.mimetype.startsWith('video/')) {
+                        folder = './uploads/Video';
+                    }
+
+                    // Ensure directory exists
+                    if (!fs.existsSync(folder)) {
+                        fs.mkdirSync(folder, { recursive: true });
+                    }
+
+                    cb(null, folder);
+                },
                 filename: (req, file, cb) => {
                     const randomName = Array(32)
                         .fill(null)
@@ -50,11 +65,17 @@ export class UploadController {
         if (!file) {
             throw new HttpException('File is required', HttpStatus.BAD_REQUEST);
         }
-        // Return the URL to access the file
-        // Assuming the server serves static files from /uploads route or root
-        // For now, let's assume we will serve it from /uploads/{filename}
+
+        // Determine subfolder based on mimetype to return correct URL
+        let subfolder = 'Files';
+        if (file.mimetype.startsWith('image/')) {
+            subfolder = 'Image';
+        } else if (file.mimetype.startsWith('video/')) {
+            subfolder = 'Video';
+        }
+
         return {
-            url: `/uploads/${file.filename}`,
+            url: `/uploads/${subfolder}/${file.filename}`,
             filename: file.filename,
             originalName: file.originalname,
             size: file.size,

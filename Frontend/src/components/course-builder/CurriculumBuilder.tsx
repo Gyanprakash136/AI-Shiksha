@@ -61,6 +61,8 @@ export function CurriculumBuilder({ courseId, onNext, onSave, onBack }: Curricul
         deleteItem,
         reorderItems,
         saveLectureContent,
+        createAssignment,
+        updateAssignment,
     } = useCourseBuilder(courseId);
 
     // Dialog State
@@ -331,6 +333,8 @@ export function CurriculumBuilder({ courseId, onNext, onSave, onBack }: Curricul
                     onOpenChange={(open) => !open && setActiveModal(null)}
                     item={activeModal.item}
                     onSave={updateItem}
+                    onCreateAssignment={createAssignment}
+                    onUpdateAssignment={updateAssignment}
                 />
             )}
             {/* Footer Save Button */}

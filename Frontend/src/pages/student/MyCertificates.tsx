@@ -13,27 +13,8 @@ import {
     Calendar,
     BookOpen,
 } from "lucide-react";
-import { Completions } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { CertificatePreview } from "@/components/certificates/CertificatePreview";
-
-interface Certificate {
-    id: string;
-    student_id: string;
-    course_id: string;
-    certificate_url: string;
-    issued_at: string;
-    student?: {
-        name: string;
-        email: string;
-    };
-    course?: {
-        title: string;
-        certificate_template?: {
-            template_config: any;
-        };
-    };
-}
+import { certificatesService, Certificate } from "@/lib/api/certificatesService";
 
 export default function MyCertificatesPage() {
     const { toast } = useToast();
@@ -48,11 +29,8 @@ export default function MyCertificatesPage() {
     const loadCertificates = async () => {
         try {
             setLoading(true);
-            // In a real app, we'd have an endpoint like /certificates/my-certificates
-            // For now, we'll use a placeholder
-            const data = await Completions.getAll();
-            const myCerts = data.filter((c: any) => c.certificate_issued);
-            setCertificates(myCerts as any);
+            const data = await certificatesService.getMyCertificates();
+            setCertificates(data);
         } catch (error: any) {
             toast({
                 title: "Error",
@@ -64,13 +42,20 @@ export default function MyCertificatesPage() {
         }
     };
 
-    const handleDownload = (certificate: Certificate) => {
-        // In a real implementation, this would trigger PDF download
-        toast({
-            title: "Download Started",
-            description: "Your certificate is being downloaded",
-        });
-        // window.open(certificate.certificate_url, '_blank');
+    const handleDownload = async (certificate: Certificate) => {
+        try {
+            await certificatesService.downloadCertificate(certificate.id);
+            toast({
+                title: "Download Started",
+                description: "Your certificate is being downloaded",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to download certificate",
+                variant: "destructive",
+            });
+        }
     };
 
     const handleShare = (certificate: Certificate) => {
@@ -89,74 +74,6 @@ export default function MyCertificatesPage() {
                     <div className="flex items-center justify-center h-64">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (selectedCertificate) {
-        return (
-            <div className="min-h-screen bg-background p-4 md:p-8">
-                <div className="max-w-5xl mx-auto space-y-6">
-                    <div className="flex items-center justify-between">
-                        <Button
-                            variant="ghost"
-                            onClick={() => setSelectedCertificate(null)}
-                        >
-                            <ArrowLeft className="h-4 w-4 mr-2" />
-                            Back to Certificates
-                        </Button>
-                        <div className="flex gap-2">
-                            <Button variant="outline" onClick={() => handleShare(selectedCertificate)}>
-                                <Share2 className="h-4 w-4 mr-2" />
-                                Share
-                            </Button>
-                            <Button onClick={() => handleDownload(selectedCertificate)}>
-                                <Download className="h-4 w-4 mr-2" />
-                                Download PDF
-                            </Button>
-                        </div>
-                    </div>
-
-                    <Card>
-                        <CardContent className="p-6">
-                            <CertificatePreview
-                                templateConfig={selectedCertificate.course?.certificate_template?.template_config || {}}
-                                studentName={selectedCertificate.student?.name || "Student"}
-                                courseName={selectedCertificate.course?.title || "Course"}
-                                completionDate={new Date(selectedCertificate.issued_at).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "long",
-                                    day: "numeric",
-                                })}
-                            />
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardHeader>
-                            <CardTitle className="text-base">Certificate Details</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Certificate ID:</span>
-                                <span className="font-mono">{selectedCertificate.id.slice(0, 8).toUpperCase()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Issued Date:</span>
-                                <span>{new Date(selectedCertificate.issued_at).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Verification URL:</span>
-                                <a
-                                    href={`/verify/${selectedCertificate.id}`}
-                                    className="text-primary hover:underline"
-                                >
-                                    Verify Certificate
-                                </a>
-                            </div>
-                        </CardContent>
-                    </Card>
                 </div>
             </div>
         );
@@ -190,7 +107,7 @@ export default function MyCertificatesPage() {
                     </Card>
                 ) : (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                        {certificates.map((certificate: any) => (
+                        {certificates.map((certificate) => (
                             <Card
                                 key={certificate.id}
                                 className="cursor-pointer hover:shadow-lg transition-shadow"
@@ -207,7 +124,7 @@ export default function MyCertificatesPage() {
                                 <CardContent className="space-y-3">
                                     <div>
                                         <h3 className="font-semibold text-lg line-clamp-2">
-                                            {certificate.course?.title || "Course Certificate"}
+                                            {certificate.courseName}
                                         </h3>
                                         <p className="text-sm text-muted-foreground mt-1">
                                             Certificate of Completion
@@ -216,7 +133,7 @@ export default function MyCertificatesPage() {
                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                         <Calendar className="h-3 w-3" />
                                         <span>
-                                            Issued {new Date(certificate.completed_at || certificate.issued_at).toLocaleDateString()}
+                                            Issued {new Date(certificate.completedDate).toLocaleDateString()}
                                         </span>
                                     </div>
                                     <div className="flex gap-2 pt-2">
