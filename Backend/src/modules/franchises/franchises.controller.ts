@@ -31,7 +31,9 @@ export class FranchisesController {
     @Get('branding')
     @ApiOperation({ summary: 'Get franchise branding for current domain (public)' })
     getBranding(@Request() req) {
-        const hostname = req.hostname || req.headers['host'] || 'localhost';
+        // Check for custom domain header from frontend
+        const customDomain = req.headers['x-franchise-domain'] || req.headers['custom-franchise-domain'];
+        const hostname = customDomain || req.hostname || req.headers['host'] || 'localhost';
         return this.franchisesService.getBrandingByDomain(hostname);
     }
 

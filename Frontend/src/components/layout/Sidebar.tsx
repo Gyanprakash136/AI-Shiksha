@@ -21,6 +21,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useFranchise } from "@/contexts/FranchiseContext";
 
 interface NavItem {
   icon: React.ElementType;
@@ -56,6 +57,7 @@ export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [role] = useState<"instructor" | "student">("instructor");
   const location = useLocation();
+  const { branding } = useFranchise();
 
   const navItems = role === "instructor" ? instructorNav : studentNav;
 
@@ -77,10 +79,14 @@ export function Sidebar() {
       <div className="flex h-16 items-center justify-between border-b border-sidebar-border px-4">
         {!collapsed && (
           <Link to="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-              <Sparkles className="h-5 w-5 text-white" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary overflow-hidden">
+              {branding.logo_url ? (
+                <img src={branding.logo_url} alt={branding.lms_name} className="h-full w-full object-cover" />
+              ) : (
+                <Sparkles className="h-5 w-5 text-white" />
+              )}
             </div>
-            <span className="text-lg font-semibold">LearnAI</span>
+            <span className="text-lg font-semibold truncate max-w-[160px]">{branding.lms_name}</span>
           </Link>
         )}
         <Button

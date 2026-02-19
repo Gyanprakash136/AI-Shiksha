@@ -9,6 +9,9 @@ api.interceptors.request.use((config) => {
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    // Inject Custom Domain Header
+    config.headers['x-franchise-domain'] = window.location.hostname;
+    config.headers['custom-franchise-domain'] = window.location.hostname;
     return config;
 });
 
@@ -125,6 +128,14 @@ export const SystemSettings = {
     },
     updateTerms: async (content: string) => {
         const { data } = await api.put('/system-settings/terms', { content });
+        return data;
+    },
+    getFranchiseServerInfo: async () => {
+        const { data } = await api.get('/system-settings/franchise-server');
+        return data;
+    },
+    updateFranchiseServerInfo: async (info: { ip: string; cname: string; instructions: string }) => {
+        const { data } = await api.put('/system-settings/franchise-server', info);
         return data;
     },
 };

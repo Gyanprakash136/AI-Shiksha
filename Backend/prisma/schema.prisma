@@ -33,6 +33,8 @@ model Franchise {
   enrollments  Enrollment[]
   payments     Payment[]
   certificates Certificate[]
+  categories   Category[]
+  tags         Tag[]
 
   @@map("franchises")
 }
@@ -197,26 +199,38 @@ model Course {
 
 model Category {
   id          String   @id @default(uuid())
-  name        String   @unique
-  slug        String   @unique
+  name        String
+  slug        String
   description String?
   icon        String?
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
+  // Multi-tenant franchise
+  franchise_id String?
+  franchise    Franchise? @relation(fields: [franchise_id], references: [id])
+
   courses Course[]
 
+  @@unique([name, franchise_id])
+  @@unique([slug, franchise_id])
   @@map("categories")
 }
 
 model Tag {
   id         String   @id @default(uuid())
-  name       String   @unique
-  slug       String   @unique
+  name       String
+  slug       String
   created_at DateTime @default(now())
+
+  // Multi-tenant franchise
+  franchise_id String?
+  franchise    Franchise? @relation(fields: [franchise_id], references: [id])
 
   courses CourseTag[]
 
+  @@unique([name, franchise_id])
+  @@unique([slug, franchise_id])
   @@map("tags")
 }
 

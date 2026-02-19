@@ -14,22 +14,22 @@ export class CompletionsController {
     constructor(private readonly completionsService: CompletionsService) { }
 
     @Get()
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
     @ApiOperation({ summary: 'Get all course completions (Admin only)' })
     @ApiQuery({ name: 'search', required: false, type: String })
-    async findAll(@Query('search') search?: string) {
-        return this.completionsService.findAll(search);
+    async findAll(@Request() req, @Query('search') search?: string) {
+        return this.completionsService.findAll(search, req.user.franchise_id);
     }
 
     @Get('stats')
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
     @ApiOperation({ summary: 'Get completion statistics (Admin only)' })
-    async getStats() {
-        return this.completionsService.getStats();
+    async getStats(@Request() req) {
+        return this.completionsService.getStats(req.user.franchise_id);
     }
 
     @Post('manual')
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
     @ApiOperation({ summary: 'Manually mark course as complete and auto-issue certificate (Admin only)' })
     async markComplete(
         @Body('student_id') studentId: string,
@@ -40,7 +40,7 @@ export class CompletionsController {
     }
 
     @Post('issue-certificate')
-    @Roles(Role.ADMIN)
+    @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
     @ApiOperation({ summary: 'Issue certificate for completed course (Admin only)' })
     async issueCertificate(
         @Body('student_id') studentId: string,

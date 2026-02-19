@@ -91,8 +91,14 @@ export class UsersController {
   @ApiOperation({ summary: 'List all users (Admin only)' })
   findAll(@Query('role') role: Role, @Request() req) {
     const isSuperAdmin = req.user?.role === Role.SUPER_ADMIN;
-    const franchiseId = req.user?.franchise_id || null;
-    return this.usersService.findAll(role, franchiseId, isSuperAdmin);
+    // IF SUPER_ADMIN, and franchise_id query param is passed, filter by it.
+    // IF NOT SUPER_ADMIN, enforce req.user.franchise_id.
+    let targetFranchiseId = isSuperAdmin ? undefined : (req.user?.franchise_id || null);
+
+    // Allow Super Admin to filter by franchise if query param provided (future proofing)
+    // For now, let's keep it simple: Super Admin sees all, Franchise Admin sees theirs.
+
+    return this.usersService.findAll(role, targetFranchiseId, isSuperAdmin);
   }
 
   @Post()

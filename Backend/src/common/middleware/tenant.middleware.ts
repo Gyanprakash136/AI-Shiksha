@@ -17,7 +17,10 @@ export class TenantMiddleware implements NestMiddleware {
     constructor(private prisma: PrismaService) { }
 
     async use(req: Request, res: Response, next: NextFunction) {
-        const hostname = req.hostname || (req.headers['host'] as string) || 'localhost';
+        // Check for custom header from frontend (managed in api.ts)
+        const customDomain = (req.headers['x-franchise-domain'] as string) || (req.headers['custom-franchise-domain'] as string);
+
+        const hostname = customDomain || req.hostname || (req.headers['host'] as string) || 'localhost';
         // Strip port number for local dev (e.g. "localhost:3000" → "localhost")
         const domain = hostname.split(':')[0];
 

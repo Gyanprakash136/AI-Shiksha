@@ -45,7 +45,36 @@ export class QuizzesService {
     });
   }
 
-  async findAll() {
+  async findAll(franchiseId?: string | null) {
+    // If franchiseId is provided (franchise admin), filter quizzes that belong to
+    // section items → sections → courses of that franchise only.
+    // If franchiseId is null (super admin with null franchise), show system quizzes only.
+    // If franchiseId is undefined (super admin), show all.
+
+    if (franchiseId !== undefined) {
+      // Fetch quizzes linked to courses belonging to the given franchise
+      const quizzes = await this.prisma.quiz.findMany({
+        where: {
+          section_items: {
+            some: {
+              section: {
+                course: {
+                  franchise_id: franchiseId,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { created_at: 'desc' },
+        include: {
+          _count: {
+            select: { questions: true },
+          },
+        },
+      });
+      return quizzes;
+    }
+
     return this.prisma.quiz.findMany({
       orderBy: { created_at: 'desc' },
       include: {

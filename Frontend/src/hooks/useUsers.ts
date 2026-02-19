@@ -1,8 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import axios from "axios";
-import { useAuth } from "@/contexts/AuthContext";
-
-const API_URL = "http://localhost:3000";
+import api from "@/lib/api";
 
 interface User {
     id: string;
@@ -21,32 +18,25 @@ interface CreateUserData {
 }
 
 export const useUsers = (role?: string) => {
-    const { token } = useAuth();
-
     const { data: users = [], isLoading, error } = useQuery({
         queryKey: ["users", role],
         queryFn: async () => {
-            const { data } = await axios.get<User[]>(`${API_URL}/users`, {
-                headers: { Authorization: `Bearer ${token}` },
+            const { data } = await api.get<User[]>(`/users`, {
                 params: role ? { role } : {},
             });
             return data;
         },
-        enabled: !!token,
     });
 
     return { users, isLoading, error };
 };
 
 export const useCreateUser = () => {
-    const { token } = useAuth();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (userData: CreateUserData) => {
-            const { data } = await axios.post(`${API_URL}/users`, userData, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const { data } = await api.post(`/users`, userData);
             return data;
         },
         onSuccess: () => {
@@ -56,14 +46,11 @@ export const useCreateUser = () => {
 };
 
 export const useDeleteUser = () => {
-    const { token } = useAuth();
     const queryClient = useQueryClient();
 
     return useMutation({
         mutationFn: async (userId: string) => {
-            await axios.delete(`${API_URL}/users/${userId}`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await api.delete(`/users/${userId}`);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["users"] });

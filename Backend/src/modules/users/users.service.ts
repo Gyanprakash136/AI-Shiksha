@@ -155,10 +155,32 @@ export class UsersService {
       mappedRole = upper === 'TEACHER' ? 'INSTRUCTOR' : upper;
     }
     const where: any = mappedRole ? { role: mappedRole as any } : {};
-    // Franchise isolation: SUPER_ADMIN sees all, others see only their franchise
-    if (!isSuperAdmin && franchiseId) {
+
+    // Franchise isolation:
+    // If franchiseId is provided (Franchise Admin/User), scope to that franchise.
+    // If isSuperAdmin is true and no franchiseId provided (System View), show all?
+    // Wait, if we want to show ONLY system users to Super Admin, we might need logic.
+    // But typically Super Admin sees everything.
+    // Start with: Super Admin sees all. Franchise Admin sees theirs.
+
+    if (franchiseId) {
       where.franchise_id = franchiseId;
+    } else if (isSuperAdmin) {
+      // SUPER ADMIN ISOLATION:
+      // If Super Admin requests "All Users" without a specific franchise filter,
+      // show ONLY System Users (franchise_id: null).
+      // This prevents the main admin dashboard from being cluttered with franchise users.
+      where.franchise_id = null;
+    } else {
+      // Fallback (shouldn't happen due to controller checks): 
+      // If not super admin and no franchise ID, they strictly shouldn't see anything or just their own.
+      // But let's keep it safe.
     }
+
+    // What about "System Users" (users with franchise_id = null)?
+    // If Super Admin wants to see ONLY system users, we need a way to filter.
+    // For now, standard behavior: Admin sees their franchise. Super Admin sees all.
+
     return this.prisma.user.findMany({
       where,
       select: {

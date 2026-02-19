@@ -8,30 +8,41 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Injectable()
 export class CategoriesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async create(createCategoryDto: CreateCategoryDto) {
+  async create(createCategoryDto: CreateCategoryDto, franchiseId?: string | null) {
     const slug = createCategoryDto.name.toLowerCase().replace(/\s+/g, '-');
 
-    // Check if category with same name exists
-    const existing = await (this.prisma as any).category.findUnique({
-      where: { slug },
+    // Check if category with same name already exists for this franchise
+    const existing = await this.prisma.category.findFirst({
+      where: { slug, franchise_id: franchiseId ?? null },
     });
 
     if (existing) {
       throw new BadRequestException('Category with this name already exists');
     }
 
-    return (this.prisma as any).category.create({
+    return this.prisma.category.create({
       data: {
         ...createCategoryDto,
         slug,
+        franchise_id: franchiseId ?? null,
       },
     });
   }
 
-  async findAll() {
-    return (this.prisma as any).category.findMany({
+  async findAll(franchiseId?: string | null) {
+    // If franchiseId is provided: show only this franchise's categories
+    // If undefined (super admin): show only system categories (franchise_id: null)
+    const where: any = {};
+    if (franchiseId !== undefined) {
+      where.franchise_id = franchiseId;  // shows franchise-specific OR null for system
+    } else {
+      where.franchise_id = null;  // super admin sees system (global) categories
+    }
+
+    return this.prisma.category.findMany({
+      where,
       include: {
         _count: {
           select: { courses: true },
@@ -42,7 +53,7 @@ export class CategoriesService {
   }
 
   async findOne(id: string) {
-    const category = await (this.prisma as any).category.findUnique({
+    const category = await this.prisma.category.findUnique({
       where: { id },
       include: {
         courses: {
@@ -61,7 +72,7 @@ export class CategoriesService {
   }
 
   async update(id: string, updateCategoryDto: CreateCategoryDto) {
-    const category = await (this.prisma as any).category.findUnique({
+    const category = await this.prisma.category.findUnique({
       where: { id },
     });
 
@@ -71,7 +82,7 @@ export class CategoriesService {
 
     const slug = updateCategoryDto.name.toLowerCase().replace(/\s+/g, '-');
 
-    return (this.prisma as any).category.update({
+    return this.prisma.category.update({
       where: { id },
       data: {
         ...updateCategoryDto,
@@ -81,7 +92,7 @@ export class CategoriesService {
   }
 
   async remove(id: string) {
-    const category = await (this.prisma as any).category.findUnique({
+    const category = await this.prisma.category.findUnique({
       where: { id },
     });
 
@@ -89,7 +100,7 @@ export class CategoriesService {
       throw new NotFoundException('Category not found');
     }
 
-    return (this.prisma as any).category.delete({
+    return this.prisma.category.delete({
       where: { id },
     });
   }

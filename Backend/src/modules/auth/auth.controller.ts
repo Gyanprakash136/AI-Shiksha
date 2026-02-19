@@ -42,7 +42,7 @@ export class AuthController {
 
   @Post('login')
   @ApiOperation({ summary: 'Login user' })
-  async login(@Body() loginDto: LoginDto) {
+  async login(@Body() loginDto: LoginDto, @Request() req) {
     const user = await this.authService.validateUser(
       loginDto.email,
       loginDto.password,
@@ -50,7 +50,9 @@ export class AuthController {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    // Pass the franchise ID from the domain (if any) to validation
+    const originFranchiseId = (req as any).tenantId || null;
+    return this.authService.login(user, originFranchiseId);
   }
 
   @Get('profile')

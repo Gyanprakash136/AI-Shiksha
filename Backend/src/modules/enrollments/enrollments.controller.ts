@@ -59,7 +59,7 @@ export class EnrollmentsController {
   // Admin endpoints
   @Get('stats')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get enrollment statistics (Admin only)' })
   getStats(@Request() req) {
@@ -68,7 +68,7 @@ export class EnrollmentsController {
 
   @Get()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all enrollments (Admin only)' })
   findAll(@Request() req, @Query('search') search?: string, @Query('status') status?: string) {
@@ -77,7 +77,7 @@ export class EnrollmentsController {
 
   @Post('admin/enroll')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Manually enroll a student (Admin only)' })
   adminEnroll(
@@ -90,7 +90,7 @@ export class EnrollmentsController {
 
   @Post('admin/bulk-enroll')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk enroll students in courses (Admin only)' })
   bulkEnroll(
@@ -103,7 +103,7 @@ export class EnrollmentsController {
 
   @Patch(':id/status')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update enrollment status (Admin only)' })
   updateStatus(@Request() req, @Param('id') id: string, @Body('status') status: string) {
@@ -112,7 +112,7 @@ export class EnrollmentsController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete enrollment (Admin only)' })
   remove(@Request() req, @Param('id') id: string) {
@@ -123,7 +123,7 @@ export class EnrollmentsController {
   // IMPORTANT: These specific routes must come BEFORE parameterized routes
   @Get('course/:courseId/students')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN, Role.INSTRUCTOR)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN, Role.INSTRUCTOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get all students enrolled in a course with progress (Admin/Instructor only)' })
   getCourseStudents(@Request() req, @Param('courseId') courseId: string) {
@@ -132,7 +132,7 @@ export class EnrollmentsController {
 
   @Post('bulk-complete')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Mark multiple enrollments as complete (Admin only)' })
   bulkComplete(@Request() req, @Body() dto: any) {
@@ -141,7 +141,7 @@ export class EnrollmentsController {
 
   @Post(':enrollmentId/complete')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Manually mark an enrollment as complete (Admin only)' })
   manualComplete(
@@ -154,7 +154,7 @@ export class EnrollmentsController {
 
   @Patch(':enrollmentId/completion-date')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update completion date for an enrollment (Admin only)' })
   updateCompletionDate(
@@ -167,7 +167,7 @@ export class EnrollmentsController {
 
   @Post('admin/bulk-update-dates')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk update enrollment and completion dates (Admin only)' })
   bulkUpdateDates(@Request() req, @Body() dto: any) {
@@ -176,7 +176,7 @@ export class EnrollmentsController {
 
   @Post('admin/bulk-incomplete')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Bulk mark enrollments as incomplete and reset progress (Admin only)' })
   bulkIncomplete(@Request() req, @Body() dto: any) {

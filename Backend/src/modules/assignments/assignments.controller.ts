@@ -23,12 +23,12 @@ import {
 @Controller()
 @UseGuards(AuthGuard('jwt'), RolesGuard)
 export class AssignmentsController {
-  constructor(private assignmentsService: AssignmentsService) {}
+  constructor(private assignmentsService: AssignmentsService) { }
 
   // ========== ASSIGNMENT CRUD ==========
 
   @Post('items/:itemId/assignment')
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   createAssignment(
     @Param('itemId') itemId: string,
     @Body() dto: CreateAssignmentDto,
@@ -37,7 +37,7 @@ export class AssignmentsController {
   }
 
   @Patch('assignments/:assignmentId')
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   updateAssignment(
     @Param('assignmentId') assignmentId: string,
     @Body() dto: UpdateAssignmentDto,
@@ -67,7 +67,7 @@ export class AssignmentsController {
   }
 
   @Post('submissions/:submissionId/grade')
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   gradeSubmission(
     @Request() req,
     @Param('submissionId') submissionId: string,
@@ -81,7 +81,7 @@ export class AssignmentsController {
   }
 
   @Get('assignments/:assignmentId/submissions')
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   getSubmissions(@Param('assignmentId') assignmentId: string) {
     return this.assignmentsService.getSubmissions(assignmentId);
   }

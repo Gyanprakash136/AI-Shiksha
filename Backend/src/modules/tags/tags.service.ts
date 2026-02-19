@@ -8,14 +8,14 @@ import { CreateTagDto } from './dto/create-tag.dto';
 
 @Injectable()
 export class TagsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
-  async create(createTagDto: CreateTagDto) {
+  async create(createTagDto: CreateTagDto, franchiseId?: string | null) {
     const slug = createTagDto.name.toLowerCase().replace(/\s+/g, '-');
 
-    // Check if tag with same name exists
-    const existing = await this.prisma.tag.findUnique({
-      where: { slug },
+    // Check if tag with same name exists for this franchise
+    const existing = await this.prisma.tag.findFirst({
+      where: { slug, franchise_id: franchiseId ?? null },
     });
 
     if (existing) {
@@ -26,12 +26,23 @@ export class TagsService {
       data: {
         ...createTagDto,
         slug,
+        franchise_id: franchiseId ?? null,
       },
     });
   }
 
-  async findAll() {
+  async findAll(franchiseId?: string | null) {
+    // Super admin (franchiseId === undefined): sees system tags (franchise_id: null)
+    // Franchise admin: sees their franchise's tags
+    const where: any = {};
+    if (franchiseId !== undefined) {
+      where.franchise_id = franchiseId;
+    } else {
+      where.franchise_id = null;
+    }
+
     return this.prisma.tag.findMany({
+      where,
       include: {
         _count: {
           select: { courses: true },

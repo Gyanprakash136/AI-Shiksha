@@ -10,7 +10,7 @@ import { UserRole } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class InstructorsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(userId: string, createInstructorDto: CreateInstructorDto) {
     // Check if user exists and upgrade role if needed?
@@ -171,8 +171,14 @@ export class InstructorsService {
     };
   }
 
-  async findAllWithStats() {
+  async findAllWithStats(franchiseId?: string | null) {
+    const userWhere: any = {};
+    if (franchiseId !== undefined) {
+      userWhere.user = { franchise_id: franchiseId };
+    }
+
     const instructors = await this.prisma.instructorProfile.findMany({
+      where: userWhere,
       include: {
         user: true,
         courses: {

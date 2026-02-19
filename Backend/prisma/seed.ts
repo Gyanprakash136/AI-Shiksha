@@ -13,7 +13,7 @@ async function main() {
     const admin = await prisma.user.upsert({
         where: { email: 'admin@lms.com' },
         update: {},
-        create: {   
+        create: {
             email: 'admin@lms.com',
             name: 'Admin User',
             password_hash: hashedPassword,
@@ -79,39 +79,20 @@ async function main() {
         role: student.role,
     });
 
-    // Create some categories
-    const categories = await Promise.all([
-        prisma.category.upsert({
-            where: { slug: 'web-development' },
-            update: {},
-            create: {
-                name: 'Web Development',
-                slug: 'web-development',
-                description: 'Build modern web applications',
-                icon: '💻',
-            },
-        }),
-        prisma.category.upsert({
-            where: { slug: 'data-science' },
-            update: {},
-            create: {
-                name: 'Data Science',
-                slug: 'data-science',
-                description: 'Analyze data and build ML models',
-                icon: '📊',
-            },
-        }),
-        prisma.category.upsert({
-            where: { slug: 'design' },
-            update: {},
-            create: {
-                name: 'Design',
-                slug: 'design',
-                description: 'UI/UX and graphic design',
-                icon: '🎨',
-            },
-        }),
-    ]);
+    // Create some categories (system categories with franchise_id: null)
+    const categoryData = [
+        { name: 'Web Development', slug: 'web-development', description: 'Build modern web applications', icon: '💻' },
+        { name: 'Data Science', slug: 'data-science', description: 'Analyze data and build ML models', icon: '📊' },
+        { name: 'Design', slug: 'design', description: 'UI/UX and graphic design', icon: '🎨' },
+    ];
+
+    const categories = await Promise.all(
+        categoryData.map(async (cat) => {
+            const existing = await prisma.category.findFirst({ where: { slug: cat.slug, franchise_id: null } });
+            if (existing) return existing;
+            return prisma.category.create({ data: { ...cat, franchise_id: null } });
+        })
+    );
 
     console.log('✅ Categories created:', categories.length);
 

@@ -21,15 +21,17 @@ import { Role } from '../../enums/role.enum';
 @ApiTags('Instructors')
 @Controller('instructors')
 export class InstructorsController {
-  constructor(private readonly instructorsService: InstructorsService) {}
+  constructor(private readonly instructorsService: InstructorsService) { }
 
   @Get('admin/list')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all instructors with stats (Admin)' })
-  getAdminList() {
-    return this.instructorsService.findAllWithStats();
+  getAdminList(@Request() req) {
+    const isSuperAdmin = req.user?.role === Role.SUPER_ADMIN || req.user?.role === 'SUPER_ADMIN';
+    const franchiseId = isSuperAdmin ? undefined : (req.user?.franchise_id ?? null);
+    return this.instructorsService.findAllWithStats(franchiseId);
   }
 
   @Post()

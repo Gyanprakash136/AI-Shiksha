@@ -36,7 +36,7 @@ export class CoursesService {
         throw new ForbiddenException('Cannot create course for user in different franchise');
       }
 
-      if (user.role === 'ADMIN' || user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN') {
+      if (user.role === 'ADMIN' || user.role === 'INSTRUCTOR' || user.role === 'SUPER_ADMIN' || user.role === 'FRANCHISE_ADMIN') {
         instructor = await this.prisma.instructorProfile.create({
           data: {
             user_id: targetUserId,
@@ -113,11 +113,20 @@ export class CoursesService {
     });
   }
 
-  async findAll(adminRequest: boolean = false, franchiseId?: string) {
-    const whereClause: any = adminRequest ? {} : { status: 'PUBLISHED' };
-
+  async findAll(adminRequest = false, franchiseId?: string, userRole?: string) {
+    const whereClause: any = {};
     if (franchiseId) {
       whereClause.franchise_id = franchiseId;
+    } else if (userRole === 'SUPER_ADMIN') {
+      // SUPER ADMIN ISOLATION:
+      // If Super Admin requests "All Courses" without a specific franchise filter,
+      // show ONLY System Courses (franchise_id: null).
+      whereClause.franchise_id = null;
+    }
+
+    // If not admin request, only show published courses
+    if (!adminRequest) {
+      whereClause.status = 'PUBLISHED';
     }
 
     console.log('Finding courses with where clause:', whereClause);
@@ -186,7 +195,6 @@ export class CoursesService {
     if (franchiseId) {
       whereClause.franchise_id = franchiseId;
     }
-
     const courses = await this.prisma.course.findMany({
       where: whereClause,
       include: {

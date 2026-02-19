@@ -20,7 +20,25 @@ export class AuthService {
     return null;
   }
 
-  async login(user: any) {
+  async login(user: any, originFranchiseId?: string | null) {
+    // STRICT FRANCHISE ISOLATION:
+    // If request comes from a franchise domain (originFranchiseId exists),
+    // user MUST belong to that franchise.
+    // SUPER_ADMIN is exempt.
+    if (originFranchiseId && user.role !== 'SUPER_ADMIN') {
+      if (user.franchise_id !== originFranchiseId) {
+        throw new UnauthorizedException('You do not have access to this franchise');
+      }
+    }
+
+    // SYSTEM DOMAIN PROTECTION:
+    // If request comes from System (originFranchiseId is null/undefined),
+    // ONLY SUPER_ADMIN or users explicitly without franchise (if any) can login.
+    // Franchise Users/Admins MUST login via their Franchise URL.
+    if (!originFranchiseId && user.franchise_id && user.role !== 'SUPER_ADMIN') {
+      throw new UnauthorizedException('Please login via your Franchise URL');
+    }
+
     const payload = {
       username: user.email,
       sub: user.id,
@@ -70,7 +88,7 @@ export class AuthService {
   private normalizeRole(role: string): string {
     if (role === 'INSTRUCTOR') return 'teacher';
     if (role === 'SUPER_ADMIN') return 'super_admin';
-    if (role === 'FRANCHISE_ADMIN') return 'franchise_admin';
+    if (role === 'FRANCHISE_ADMIN') return 'FRANCHISE_ADMIN'; // Keep uppercase for frontend checks or consistency
     return role.toLowerCase();
   }
 }

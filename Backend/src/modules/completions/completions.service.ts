@@ -6,10 +6,15 @@ export class CompletionsService {
     constructor(private prisma: PrismaService) { }
 
     // Get all course completions with student and course info
-    async findAll(search?: string) {
+    async findAll(search?: string, franchiseId?: string) {
         const where: any = {
             completed: true,
         };
+
+        // Franchise isolation: scope by the franchise the course belongs to
+        if (franchiseId !== undefined) {
+            where.course = { franchise_id: franchiseId };
+        }
 
         // Add search filter if provided
         if (search) {
@@ -72,12 +77,17 @@ export class CompletionsService {
     }
 
     // Get completion statistics
-    async getStats() {
+    async getStats(franchiseId?: string) {
+        const courseFilter = franchiseId !== undefined ? { course: { franchise_id: franchiseId } } : {};
+        const courseCountFilter = franchiseId !== undefined ? { franchise_id: franchiseId } : {};
+
         const totalCompletions = await this.prisma.courseProgress.count({
-            where: { completed: true },
+            where: { completed: true, ...courseFilter },
         });
 
-        const certificatesIssued = await this.prisma.certificate.count();
+        const certificatesIssued = await this.prisma.certificate.count({
+            where: { ...courseCountFilter },
+        });
 
         // Calculate average score (placeholder - would need quiz/assessment system)
         const avgScore = 86;
@@ -93,6 +103,7 @@ export class CompletionsService {
                 updated_at: {
                     gte: startOfMonth,
                 },
+                ...courseFilter,
             },
         });
 

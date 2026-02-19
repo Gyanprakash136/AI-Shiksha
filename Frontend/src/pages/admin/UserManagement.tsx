@@ -174,26 +174,24 @@ function AddUserModalContent({ onSuccess }: { onSuccess: () => void }) {
 
     setIsSubmitting(true);
     try {
+      const createdName = formData.name; // capture before reset
       const newUser = await UsersAPI.create({
         ...formData,
         password,
       });
 
-      // Reset form first
-      setFormData({ name: "", email: "", role: "" });
+      // Reset form
+      setFormData({ name: "", email: "", role: "STUDENT" });
       setPassword("");
       setConfirmPassword("");
 
-      // Wait for the user list to refresh before closing modal
+      // Refresh user list then close modal
       await onSuccess();
-
-      // Close modal after refresh completes
       setIsOpen(false);
 
-      // Show success toast after everything is done
       toast({
         title: "User Created",
-        description: `Successfully created user account for ${formData.name}.`,
+        description: `Successfully created user account for ${createdName}.`,
       });
     } catch (error: any) {
       console.error("Failed to create user:", error);
@@ -215,7 +213,10 @@ function AddUserModalContent({ onSuccess }: { onSuccess: () => void }) {
           Add User
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className="sm:max-w-[500px]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl">Add New User</DialogTitle>
           <DialogDescription>
@@ -235,11 +236,14 @@ function AddUserModalContent({ onSuccess }: { onSuccess: () => void }) {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="role">Role *</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+              <Select
+                value={formData.role}
+                onValueChange={(value) => setFormData({ ...formData, role: value })}
+              >
+                <SelectTrigger id="role" className="w-full">
+                  <SelectValue placeholder="Select a role" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100]">
                   <SelectItem value="STUDENT">Student</SelectItem>
                   <SelectItem value="INSTRUCTOR">Instructor</SelectItem>
                   <SelectItem value="ADMIN">Administrator</SelectItem>

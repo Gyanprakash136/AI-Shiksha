@@ -25,7 +25,7 @@ export class CoursesController {
 
   @Post()
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.SUPER_ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a new course' })
   create(@Request() req, @Body() createCourseDto: CreateCourseDto) {
@@ -43,11 +43,11 @@ export class CoursesController {
 
   @Get('admin/all')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List all courses (Admin)' })
   findAllAdmin(@Request() req) {
-    return this.coursesService.findAll(true, req.user.franchise_id);
+    return this.coursesService.findAll(true, req.user.franchise_id, req.user.role);
   }
 
   @Get()
@@ -75,7 +75,7 @@ export class CoursesController {
 
   @Patch(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Update course' })
   update(
@@ -94,7 +94,7 @@ export class CoursesController {
 
   @Delete(':id')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Delete course' })
   remove(@Request() req, @Param('id') id: string) {
@@ -114,7 +114,7 @@ export class CoursesController {
 
   @Post(':id/approve')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Approve course (Admin only)' })
   approveCourse(@Request() req, @Param('id') id: string) {
@@ -123,7 +123,7 @@ export class CoursesController {
 
   @Post(':id/reject')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Reject course with feedback (Admin only)' })
   rejectCourse(
@@ -141,7 +141,7 @@ export class CoursesController {
 
   @Post(':id/publish')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.INSTRUCTOR, Role.ADMIN)
+  @Roles(Role.INSTRUCTOR, Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish course' })
   publishCourse(@Request() req, @Param('id') id: string) {
@@ -150,7 +150,7 @@ export class CoursesController {
 
   @Get('pending-approval/list')
   @UseGuards(AuthGuard('jwt'), RolesGuard)
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.FRANCHISE_ADMIN)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get courses pending approval (Admin only)' })
   getPendingApproval(@Request() req) {

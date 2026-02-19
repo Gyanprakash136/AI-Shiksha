@@ -5,18 +5,62 @@ import { PrismaService } from '../../prisma/prisma.service';
 export class SystemSettingsService {
     constructor(private prisma: PrismaService) { }
 
-    async getTerms() {
+    async getTerms(franchiseId?: string | null) {
+        const key = franchiseId ? `terms_and_conditions__${franchiseId}` : 'terms_and_conditions';
         const setting = await this.prisma.systemSetting.findUnique({
-            where: { key: 'terms_and_conditions' },
+            where: { key },
         });
         return { content: setting?.value || '' };
     }
 
-    async updateTerms(content: string) {
+    async updateTerms(content: string, franchiseId?: string | null) {
+        const key = franchiseId ? `terms_and_conditions__${franchiseId}` : 'terms_and_conditions';
         return this.prisma.systemSetting.upsert({
-            where: { key: 'terms_and_conditions' },
+            where: { key },
             update: { value: content },
-            create: { key: 'terms_and_conditions', value: content },
+            create: { key, value: content },
         });
+    }
+
+    async getFranchiseServerInfo() {
+        const keys = ['franchise_server_ip', 'franchise_server_cname', 'franchise_setup_instructions'];
+        const settings = await this.prisma.systemSetting.findMany({
+            where: { key: { in: keys } },
+        });
+
+        // Convert array to object
+        const result = settings.reduce((acc, curr) => {
+            acc[curr.key] = curr.value;
+            return acc;
+        }, {} as Record<string, string>);
+
+        return {
+            ip: result['franchise_server_ip'] || '',
+            cname: result['franchise_server_cname'] || '',
+            instructions: result['franchise_setup_instructions'] || '',
+        };
+    }
+
+    async updateFranchiseServerInfo(data: { ip: string; cname: string; instructions: string }) {
+        const updates = [
+            this.prisma.systemSetting.upsert({
+                where: { key: 'franchise_server_ip' },
+                update: { value: data.ip },
+                create: { key: 'franchise_server_ip', value: data.ip },
+            }),
+            this.prisma.systemSetting.upsert({
+                where: { key: 'franchise_server_cname' },
+                update: { value: data.cname },
+                create: { key: 'franchise_server_cname', value: data.cname },
+            }),
+            this.prisma.systemSetting.upsert({
+                where: { key: 'franchise_setup_instructions' },
+                update: { value: data.instructions },
+                create: { key: 'franchise_setup_instructions', value: data.instructions },
+            }),
+        ];
+
+        await this.prisma.$transaction(updates);
+        return { success: true };
     }
 }

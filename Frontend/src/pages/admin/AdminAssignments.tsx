@@ -74,7 +74,8 @@ export default function AdminAssignments() {
     const fetchCourses = async () => {
         try {
             setLoadingCourses(true);
-            const data = await Courses.getAll();
+            // Use admin endpoint which is franchise-scoped via the JWT token
+            const data = await Courses.getAll(true);
             setCourses(data);
         } catch (error) {
             console.error("Failed to fetch courses:", error);
