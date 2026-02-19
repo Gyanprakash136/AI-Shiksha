@@ -15,6 +15,7 @@ import { RichTextEditor } from './RichTextEditor';
 import { VideoUpload, DocumentUpload } from './FileUpload';
 import { Video, FileText, Link as LinkIcon, Type } from 'lucide-react';
 import type { LectureContentType } from '@/types/courseBuilder';
+import { Videos } from '@/lib/api';
 
 interface LectureEditorProps {
     open: boolean;
@@ -75,9 +76,45 @@ export function LectureEditor({
     };
 
     const handleVideoUpload = async (files: File[]) => {
-        // In production, upload to cloud storage
-        // For now, return a mock URL
-        return [URL.createObjectURL(files[0])];
+        try {
+            // Generate a unique ID for this video upload
+            const videoId = crypto.randomUUID();
+            const organizationId = 'default-org'; // distinct org ID if needed
+
+            // 1. Upload to Microservice
+            await Videos.uploadToMicroservice(files[0], videoId, organizationId, (progress) => {
+                console.log(`Upload progress: ${progress}%`);
+                // You could add a progress state here if you want to show it in the UI
+            });
+
+            // 2. Poll Backend for completion
+            // We'll poll every 2 seconds for up to 2 minutes
+            const maxAttempts = 60;
+            let attempts = 0;
+
+            return new Promise<string[]>((resolve, reject) => {
+                const interval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const status = await Videos.checkStatus(videoId);
+                        if (status && status.status === 'completed') {
+                            clearInterval(interval);
+                            resolve([status.url]);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(interval);
+                            reject(new Error('Video processing timed out'));
+                        }
+                    } catch (e) {
+                        // Ignore polling errors, just retry
+                        console.warn("Polling error", e);
+                    }
+                }, 2000);
+            });
+
+        } catch (error) {
+            console.error('Video upload failed', error);
+            throw error;
+        }
     };
 
     const handleFileUpload = async (files: File[]) => {

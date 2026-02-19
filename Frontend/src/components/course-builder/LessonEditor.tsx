@@ -15,6 +15,7 @@ import {
 import { RichTextEditor } from '@/components/editors/RichTextEditor';
 import { Video, FileText, Link as LinkIcon, Type, Clock, CheckCircle2, Eye, Save, X, UploadCloud, Loader2, BookOpen } from 'lucide-react';
 import type { SectionItem, LectureContentType } from '@/types/courseBuilder';
+import { Videos } from '@/lib/api';
 
 interface LessonEditorProps {
     open: boolean;
@@ -44,7 +45,11 @@ export function LessonEditor({
     const [videoUrl, setVideoUrl] = useState('');
     const [attachmentUrl, setAttachmentUrl] = useState('');
     const [pdfUrl, setPdfUrl] = useState('');
+
+    // Upload State
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadStatus, setUploadStatus] = useState<string>(''); // 'uploading', 'processing', 'completed', 'error'
 
     useEffect(() => {
         if (open) {
@@ -52,6 +57,8 @@ export function LessonEditor({
             setDuration(item.duration_minutes?.toString() || '');
             setIsPreview(item.is_preview || false);
             setIsMandatory(item.is_mandatory || false);
+            setUploadProgress(0);
+            setUploadStatus('');
 
             if (item.lecture_content) {
                 const content = item.lecture_content;
@@ -81,6 +88,7 @@ export function LessonEditor({
                 setTextContent('');
                 setVideoUrl('');
                 setAttachmentUrl('');
+                setPdfUrl(''); // Also clear PDF URL
             }
         }
     }, [open, item]);
@@ -90,38 +98,66 @@ export function LessonEditor({
         if (!file) return;
 
         setIsUploading(true);
+        setUploadProgress(0);
+        setUploadStatus('uploading');
+
         try {
-            // Use the import from lib/api but we need to ensure it's imported in the file headers
-            // Assuming Uploads is exported from @/lib/api
-            // We need to add the import first if not present, but for now I'll assume I can use it if I add it.
-            // Since I cannot change imports easily in this block, I will assume the user has added it or I will add it in a prior step? 
-            // Wait, I am replacing the whole functional component content mostly.
-            // I need to import { Uploads } from '@/lib/api' at the top of the file. 
-            // I will do that in a separate step or assume it exists. 
-            // Actually I should split this edit.
-            // For now, I'll use a placeholder or assume global? No.
-            // I will use `any` for now and strictly type checking later or add the import.
-            // BETTER: I'll add the import in a separate tool call before this one.
-
-            // Re-evaluating: I will inject the upload logic here assuming `Uploads` is available.
-            const response = await import('@/lib/api').then(m => m.Uploads.upload(file));
-
             if (type === 'VIDEO') {
-                // Construct full URL if backend returns relative
-                const url = response.url.startsWith('http') ? response.url : `http://localhost:3000${response.url}`;
-                setVideoUrl(url);
-            } else if (type === 'PDF') {
-                const url = response.url.startsWith('http') ? response.url : `http://localhost:3000${response.url}`;
-                setPdfUrl(url);
+                // 1. Upload to Microservice
+                const videoId = crypto.randomUUID();
+                const organizationId = 'default-org';
+
+                await Videos.uploadToMicroservice(file, videoId, organizationId, (progress) => {
+                    setUploadProgress(progress);
+                });
+
+                setUploadStatus('processing');
+
+                // 2. Poll Backend for completion
+                const maxAttempts = 60;
+                let attempts = 0;
+
+                const pollInterval = setInterval(async () => {
+                    attempts++;
+                    try {
+                        const status = await Videos.checkStatus(videoId);
+                        if (status && status.status === 'completed') {
+                            clearInterval(pollInterval);
+                            setVideoUrl(status.url);
+                            setUploadStatus('completed');
+                            setIsUploading(false);
+                        } else if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval);
+                            setUploadStatus('error');
+                            setIsUploading(false);
+                            // toast.error('Video processing timed out');
+                        }
+                    } catch (e) {
+                        console.warn("Polling error", e);
+                    }
+                }, 2000);
+
             } else {
+                // Standard upload for other files
+                // We need to import Uploads dynamically or from api.ts
+                const { Uploads } = await import('@/lib/api');
+                const response = await Uploads.upload(file);
+
                 const url = response.url.startsWith('http') ? response.url : `http://localhost:3000${response.url}`;
-                setAttachmentUrl(url);
+
+                if (type === 'PDF') {
+                    setPdfUrl(url);
+                } else {
+                    setAttachmentUrl(url);
+                }
+                setUploadStatus('completed');
+                setIsUploading(false);
             }
         } catch (error) {
             console.error(error);
-            // toast.error('Upload failed');
-        } finally {
+            setUploadStatus('error');
             setIsUploading(false);
+            // toast.error('Upload failed');
         }
     };
 
@@ -256,6 +292,7 @@ export function LessonEditor({
                                             placeholder="https://..."
                                             value={videoUrl}
                                             onChange={(e) => setVideoUrl(e.target.value)}
+                                            disabled={isUploading}
                                         />
                                     </div>
                                     <div className="space-y-2">
@@ -268,12 +305,45 @@ export function LessonEditor({
                                                 onChange={(e) => handleFileUpload(e, 'VIDEO')}
                                                 disabled={isUploading}
                                             />
-                                            <UploadCloud className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                            {isUploading && uploadStatus !== 'completed' && uploadStatus !== 'error' ? (
+                                                <Loader2 className="absolute left-3 top-3 h-4 w-4 text-blue-500 animate-spin" />
+                                            ) : (
+                                                <UploadCloud className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                            )}
                                         </div>
                                     </div>
                                 </div>
-                                {videoUrl && (
-                                    <div className="bg-slate-50 p-3 rounded-lg flex items-center gap-2 text-sm text-blue-600 break-all">
+
+                                {isUploading && (
+                                    <div className={`space-y-1 p-4 rounded-lg border ${uploadStatus === 'error' ? 'bg-red-50 border-red-200' : 'bg-slate-50 border-slate-100'}`}>
+                                        <div className="flex justify-between text-sm">
+                                            <span className={`font-medium ${uploadStatus === 'error' ? 'text-red-700' : 'text-slate-700'}`}>
+                                                {uploadStatus === 'uploading' ? 'Uploading to Microservice...' :
+                                                    uploadStatus === 'processing' ? 'Compressing & Optimizing...' :
+                                                        uploadStatus === 'error' ? 'Upload Failed' : 'Finalizing...'}
+                                            </span>
+                                            <span className="text-slate-500">{uploadStatus === 'uploading' ? `${uploadProgress}%` : ''}</span>
+                                        </div>
+                                        {uploadStatus !== 'error' && (
+                                            <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`h-full transition-all duration-300 ${uploadStatus === 'processing' ? 'bg-purple-500 animate-pulse w-full' : 'bg-blue-500'}`}
+                                                    style={{ width: uploadStatus === 'processing' ? '100%' : `${uploadProgress}%` }}
+                                                />
+                                            </div>
+                                        )}
+                                        <p className={`text-xs ${uploadStatus === 'error' ? 'text-red-600' : 'text-slate-500'}`}>
+                                            {uploadStatus === 'processing'
+                                                ? "Video is being compressed in the background. This may take a moment."
+                                                : uploadStatus === 'error'
+                                                    ? "There was an error uploading or processing the video. Please try again."
+                                                    : "Please keep this window open."}
+                                        </p>
+                                    </div>
+                                )}
+
+                                {videoUrl && !isUploading && (
+                                    <div className="bg-slate-50 p-3 rounded-lg flex items-center gap-2 text-sm text-blue-600 break-all border border-blue-100">
                                         <Video className="h-4 w-4 shrink-0" />
                                         {videoUrl}
                                     </div>

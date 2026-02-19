@@ -492,4 +492,38 @@ export const Uploads = {
     }
 };
 
+export const Videos = {
+    uploadToMicroservice: async (file: File, videoId: string, organizationId: string, onProgress?: (progress: number) => void) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('video_id', videoId);
+        formData.append('organization_id', organizationId);
+
+        // Access environment variables securely
+        const MICROSERVICE_URL = import.meta.env.VITE_VIDEO_SERVICE_URL || 'http://localhost:8000';
+        const SERVICE_KEY = import.meta.env.VITE_INTERNAL_SERVICE_KEY || 'dev-key';
+
+        const response = await axios.post(`${MICROSERVICE_URL}/video/receive`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+                'x-internal-service-key': SERVICE_KEY,
+            },
+            onUploadProgress: (progressEvent) => {
+                if (onProgress && progressEvent.total) {
+                    const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    onProgress(progress);
+                }
+            },
+        });
+        return response.data;
+    },
+    checkStatus: async (videoId: string) => {
+        // Poll the Backend for the status, not the Microservice directly (as microservice might clean up)
+        // OR poll the Microservice first? 
+        // Our backend now has a check-status endpoint.
+        const { data } = await api.post('/upload/check-status', { video_id: videoId });
+        return data;
+    }
+};
+
 export default api;
