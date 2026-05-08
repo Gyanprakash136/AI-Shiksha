@@ -4,8 +4,8 @@ const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 async function main() {
-    const email = 'expertttrainers@gmail.com';
-    const password = '@#k$7878V';
+    const email = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const password = process.env.ADMIN_PASSWORD || 'secure_placeholder_password';
     const hashedPassword = await bcrypt.hash(password, 10);
 
     console.log('Seeding super admin user...');

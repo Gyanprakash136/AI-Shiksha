@@ -4,21 +4,23 @@ const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 async function seedAdmin() {
-    const hashedPassword = await bcrypt.hash('@#k$7878V', 10);
+    const email = process.env.ADMIN_EMAIL || 'admin@example.com';
+    const password = process.env.ADMIN_PASSWORD || 'secure_placeholder_password';
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     const admin = await prisma.user.upsert({
-        where: { email: 'expertttrainers@gmail.com' },
+        where: { email },
         update: {},
         create: {
             name: 'Super Admin',
-            email: 'expertttrainers@gmail.com',
+            email,
             password_hash: hashedPassword,
             role: 'SUPER_ADMIN',
         },
     });
 
     console.log('✅ Super Admin user created/updated:');
-    console.log('   Email: expertttrainers@gmail.com');
+    console.log(`   Email: ${email}`);
     // Password output hidden for security
     console.log('   Role: SUPER_ADMIN');
 }
