@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import { EmbeddingService } from './embedding.service';
+import { chunkText } from './chunking.util';
 
 @Injectable()
 export class RetrievalService {
@@ -12,16 +13,96 @@ export class RetrievalService {
   ) {}
 
   /**
-   * Retrieves the top 5 most relevant content chunks for a given query within a course.
+   * Retrieves the most relevant content chunks for a given query within a course.
+   * If a section item is provided, it adds the lecture/video content as priority context.
    */
-  async retrieveRelevantChunks(courseId: string, query: string, customApiKey?: string): Promise<string[]> {
+  async retrieveRelevantChunks(
+    courseId: string,
+    query: string,
+    sectionItemId?: string,
+  ): Promise<string[]> {
     if (!query || !query.trim()) return [];
 
+    const chunks: string[] = [];
+
+    if (sectionItemId) {
+      const item = await this.prisma.sectionItem.findUnique({
+        where: { id: sectionItemId },
+        include: {
+          lecture_content: true,
+          section: {
+            select: {
+              course_id: true,
+            },
+          },
+        },
+      });
+
+      if (item && item.section.course_id === courseId) {
+        if (item.type === 'LECTURE' && item.lecture_content) {
+          const lectureContext = this.buildLectureContext(item);
+          const itemChunks = chunkText(lectureContext, 1200, 400);
+
+          if (itemChunks.length > 0) {
+            chunks.push(
+              `PRIORITY VIDEO LECTURE CONTEXT for item "${item.title}":`,
+              ...itemChunks,
+            );
+          }
+        } else {
+          this.logger.debug(
+            `Section item ${sectionItemId} is not a lecture or has no lecture content; falling back to course-level retrieval.`,
+          );
+        }
+      } else {
+        this.logger.warn(`Section item ${sectionItemId} did not belong to course ${courseId}.`);
+      }
+    }
+
+    const courseChunks = await this.retrieveCourseEmbeddings(courseId, query);
+    chunks.push(...courseChunks);
+
+    return chunks.slice(0, 10);
+  }
+
+  private buildLectureContext(item: any): string {
+    const contentPieces: string[] = [];
+
+    if (item.title) {
+      contentPieces.push(`Title: ${item.title}`);
+    }
+
+    if (item.description) {
+      contentPieces.push(`Description: ${item.description}`);
+    }
+
+    const lecture = item.lecture_content;
+    if (lecture) {
+      if (lecture.video_url) {
+        contentPieces.push(`Video URL: ${lecture.video_url}`);
+      }
+      if (lecture.video_provider) {
+        contentPieces.push(`Video provider: ${lecture.video_provider}`);
+      }
+      if (lecture.transcript) {
+        contentPieces.push(`Transcript:\n${lecture.transcript}`);
+      }
+      if (lecture.text_content) {
+        contentPieces.push(`Text Content:\n${lecture.text_content}`);
+      }
+      if (lecture.external_link) {
+        contentPieces.push(`External link: ${lecture.external_link}`);
+      }
+    }
+
+    return contentPieces.join('\n\n');
+  }
+
+  private async retrieveCourseEmbeddings(courseId: string, query: string): Promise<string[]> {
     // 1. Generate Embedding for the query
-    const embedding = await this.embeddingService.generateEmbedding(query, customApiKey);
+    const embedding = await this.embeddingService.generateEmbedding(query);
     
     // If embedding API fails, return empty array (fallback to no context)
-    // We cannot do semantic search without a query vector.
     if (!embedding) {
       this.logger.warn('Skipping retrieval: Failed to generate query embedding');
       return [];
@@ -31,8 +112,6 @@ export class RetrievalService {
     const vectorString = `[${embedding.join(',')}]`;
 
     try {
-      // 3. Execute Vector Search
-      // We use raw SQL because Prisma does not support vector operators natively yet in typed queries
       const results = await this.prisma.$queryRaw<Array<{ content_chunk: string }>>`
         SELECT content_chunk
         FROM "lesson_embeddings"
@@ -48,11 +127,8 @@ export class RetrievalService {
 
       return results.map((r) => r.content_chunk);
     } catch (error) {
-      if (error?.message?.includes('vector') || error?.code === '42704') {
-        this.logger.warn('pgvector extension not available — skipping semantic retrieval, chatbot will respond without course context.');
-      } else {
-        this.logger.warn(`Vector retrieval skipped: ${error.message}`);
-      }
+      const err = error as Error;
+      this.logger.error(`Vector Retrieval Failed: ${err.message}`);
       return [];
     }
   }

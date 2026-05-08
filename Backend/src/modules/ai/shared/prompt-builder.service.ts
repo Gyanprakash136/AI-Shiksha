@@ -51,23 +51,24 @@ If a query falls into REFUSAL MODE (Non-Academic), reply EXACTLY: "I am an acade
 `.trim();
     }
 
-    const contextSection = contextContent 
-        ? `COURSE CONTENT (Context):\n${contextContent}`.trim()
-        : 'COURSE CONTENT (Context):\n(No specific course context provided. Use general academic knowledge.)';
-
     const userSection = `
 Student: ${userMessage}
 Assistant:
 `.trim();
 
-    // 2. Calculate initial size without history
-    // History header overhead ~20 chars
-    let currentSize = systemInstruction.length + contextSection.length + userSection.length + 50;
-    
-    // 3. Add History (Trimmed if necessary)
-    const historySection = this.buildTrimmedHistory(history, this.MAX_PROMPT_LENGTH - currentSize);
+    const estimatedBaseLength = systemInstruction.length + userSection.length + 80;
+    const maxContextLength = Math.max(0, this.MAX_PROMPT_LENGTH - estimatedBaseLength - 1200);
+    const trimmedContext = this.truncateText(contextContent, maxContextLength);
 
-    // 4. Final Assembly
+    const contextSection = trimmedContext
+      ? `COURSE CONTENT (Context):\n${trimmedContext}`
+      : 'COURSE CONTENT (Context):\n(No specific course context provided. Use general academic knowledge.)';
+
+    const historySection = this.buildTrimmedHistory(
+      history,
+      this.MAX_PROMPT_LENGTH - (systemInstruction.length + contextSection.length + userSection.length + 40),
+    );
+
     return `
 ${systemInstruction}
 
@@ -86,11 +87,6 @@ ${userSection}
     if (!history || history.length === 0) return 'CONVERSATION HISTORY:\n(None)';
     if (charBudget <= 100) return 'CONVERSATION HISTORY:\n(Truncated for length)';
 
-    let formattedHistory = '';
-    // Process from newest to oldest to calculate what fits, then reverse for display? 
-    // Actually simpler: Try to fit all, if not, remove index 0 (oldest).
-    
-    // Clone to avoid mutating original
     const messages = [...history];
 
     while (messages.length > 0) {
@@ -102,11 +98,16 @@ ${userSection}
         return candidateString;
       }
 
-      // Remove oldest message
       messages.shift();
     }
 
     return 'CONVERSATION HISTORY:\n(Truncated for length)';
+  }
+
+  private truncateText(text: string, maxLength: number): string {
+    if (!text || maxLength <= 0) return '';
+    if (text.length <= maxLength) return text;
+    return `${text.slice(0, maxLength - 3).trim()}...`;
   }
 }
 
