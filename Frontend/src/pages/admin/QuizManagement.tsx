@@ -18,7 +18,9 @@ import {
     HelpCircle,
     BarChart,
     Settings,
-    PlayCircle
+    PlayCircle,
+    Sparkles,
+    Loader2
 } from "lucide-react";
 import {
     DropdownMenu,
@@ -26,6 +28,23 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { AI } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import api from "@/lib/api";
 import { QuizResultsView } from "./components/QuizResultsView";
@@ -37,6 +56,12 @@ export default function QuizManagement() {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState<"QUIZZES" | "RESULTS">("QUIZZES");
+
+    const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+    const [quizTopic, setQuizTopic] = useState("");
+    const [quizLevel, setQuizLevel] = useState("beginner");
+    const [quizCount, setQuizCount] = useState("10");
+    const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
 
     useEffect(() => {
         fetchQuizzes();
@@ -55,6 +80,26 @@ export default function QuizManagement() {
             });
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleGenerateQuiz = async () => {
+        if (!quizTopic) {
+            toast({ title: "Topic Required", description: "Please enter a topic to generate a quiz.", variant: "destructive" });
+            return;
+        }
+        setIsGeneratingQuiz(true);
+        try {
+            const response = await AI.generateQuiz(undefined, quizTopic, quizLevel, parseInt(quizCount));
+            if (response?.data?.questions) {
+                setIsQuizModalOpen(false);
+                navigate("/dashboard/quizzes/new", { state: { generatedQuiz: response.data, generatedTopic: quizTopic } });
+            }
+        } catch (error) {
+            console.error("Failed to generate quiz", error);
+            toast({ title: "Generation Failed", description: "Could not generate quiz. Please try again.", variant: "destructive" });
+        } finally {
+            setIsGeneratingQuiz(false);
         }
     };
 
@@ -100,6 +145,14 @@ export default function QuizManagement() {
                     </div>
 
                     <div className="relative z-10 flex items-center gap-4 shrink-0">
+                        <Button 
+                            variant="outline" 
+                            className="h-12 bg-transparent border border-white/20 hover:bg-white/10 text-white rounded-none font-bold uppercase tracking-widest px-6 w-full sm:w-auto"
+                            onClick={() => setIsQuizModalOpen(true)}
+                        >
+                            <Sparkles className="h-5 w-5 mr-2 text-fuchsia-400" />
+                            Auto-Generate
+                        </Button>
                         <Link to="/dashboard/quizzes/new">
                             <Button className="h-12 bg-white hover:bg-zinc-200 text-zinc-900 rounded-none font-bold uppercase tracking-widest px-6 w-full sm:w-auto">
                                 <Plus className="h-5 w-5 mr-2" />
@@ -238,6 +291,65 @@ export default function QuizManagement() {
                     <QuizResultsView quizzes={quizzes} />
                 )}
             </div>
+
+            <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-lms-purple" />
+                            Auto-Generate Quiz
+                        </DialogTitle>
+                        <DialogDescription>
+                            Specify the topic and difficulty to automatically generate a brand new quiz using AI.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="topic">Quiz Topic / Subject</Label>
+                            <Input
+                                id="topic"
+                                placeholder="e.g. Advanced JavaScript Closures"
+                                value={quizTopic}
+                                onChange={(e) => setQuizTopic(e.target.value)}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="level">Difficulty Level</Label>
+                            <Select value={quizLevel} onValueChange={setQuizLevel}>
+                                <SelectTrigger id="level">
+                                    <SelectValue placeholder="Select level" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="beginner">Beginner</SelectItem>
+                                    <SelectItem value="intermediate">Intermediate</SelectItem>
+                                    <SelectItem value="advanced">Advanced</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="count">Number of Questions</Label>
+                            <Select value={quizCount} onValueChange={setQuizCount}>
+                                <SelectTrigger id="count">
+                                    <SelectValue placeholder="Select number of questions" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="5">5 Questions</SelectItem>
+                                    <SelectItem value="10">10 Questions</SelectItem>
+                                    <SelectItem value="15">15 Questions</SelectItem>
+                                    <SelectItem value="20">20 Questions</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsQuizModalOpen(false)}>Cancel</Button>
+                        <Button onClick={handleGenerateQuiz} disabled={isGeneratingQuiz} className="bg-violet-600 hover:bg-violet-700">
+                            {isGeneratingQuiz ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                            {isGeneratingQuiz ? "Generating..." : "Generate Quiz"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </AdminDashboardLayout>
     );
 }

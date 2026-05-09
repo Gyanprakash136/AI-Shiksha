@@ -9,6 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -39,11 +47,17 @@ export default function LessonEditor() {
   const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
 
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [quizTopic, setQuizTopic] = useState("");
+  const [quizLevel, setQuizLevel] = useState("beginner");
+  const [quizCount, setQuizCount] = useState("4");
+
   const handleGenerateQuiz = async () => {
     if (!lessonId) return;
     setIsGeneratingQuiz(true);
+    setIsQuizModalOpen(false);
     try {
-      const response = await AI.generateQuiz(lessonId);
+      const response = await AI.generateQuiz(lessonId, quizTopic, quizLevel, parseInt(quizCount));
       if (response?.data?.questions) {
         setQuestions(response.data.questions);
         setLessonType("quiz");
@@ -206,7 +220,7 @@ export default function LessonEditor() {
                       <HelpCircle className="h-5 w-5 text-lms-amber" />
                       Quiz Questions
                     </CardTitle>
-                    <Button variant="outline" className="gap-2" onClick={handleGenerateQuiz} disabled={isGeneratingQuiz}>
+                    <Button variant="outline" className="gap-2" onClick={() => setIsQuizModalOpen(true)} disabled={isGeneratingQuiz}>
                       {isGeneratingQuiz ? <Loader2 className="h-4 w-4 animate-spin text-lms-purple" /> : <Sparkles className="h-4 w-4 text-lms-purple" />}
                       {isGeneratingQuiz ? "Generating..." : "Generate Questions"}
                     </Button>
@@ -349,7 +363,7 @@ export default function LessonEditor() {
                 <Button 
                   variant="outline" 
                   className="w-full justify-start gap-2"
-                  onClick={handleGenerateQuiz}
+                  onClick={() => setIsQuizModalOpen(true)}
                   disabled={isGeneratingQuiz}
                 >
                   {isGeneratingQuiz ? <Loader2 className="h-4 w-4 animate-spin text-lms-purple" /> : <Sparkles className="h-4 w-4 text-lms-purple" />}
@@ -360,6 +374,64 @@ export default function LessonEditor() {
           </div>
         </div>
       </div>
+
+      <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-lms-purple" />
+              Generate Quiz with AI
+            </DialogTitle>
+            <DialogDescription>
+              Specify the topic and difficulty to automatically generate quiz questions based on this lesson.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="topic">Specific Focus Topic (Optional)</Label>
+              <Input
+                id="topic"
+                placeholder="e.g. Backpropagation, Syntax, etc."
+                value={quizTopic}
+                onChange={(e) => setQuizTopic(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="level">Difficulty Level</Label>
+              <Select value={quizLevel} onValueChange={setQuizLevel}>
+                <SelectTrigger id="level">
+                  <SelectValue placeholder="Select level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="beginner">Beginner</SelectItem>
+                  <SelectItem value="intermediate">Intermediate</SelectItem>
+                  <SelectItem value="advanced">Advanced</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="count">Number of Questions</Label>
+              <Select value={quizCount} onValueChange={setQuizCount}>
+                <SelectTrigger id="count">
+                  <SelectValue placeholder="Select number of questions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2">2 Questions</SelectItem>
+                  <SelectItem value="4">4 Questions</SelectItem>
+                  <SelectItem value="6">6 Questions</SelectItem>
+                  <SelectItem value="10">10 Questions</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuizModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleGenerateQuiz} className="bg-lms-purple hover:bg-lms-purple/90">
+              Generate Questions
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </UnifiedDashboard>
   );
 }

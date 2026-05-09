@@ -295,9 +295,9 @@ export class AssistantService {
     }
   }
 
-  async generateQuiz(userId: string, tenantId: string | null, lessonId: string, requestDomain?: string | null) {
-    if (!lessonId) {
-      throw new HttpException('Lesson ID is required', HttpStatus.BAD_REQUEST);
+  async generateQuiz(userId: string, tenantId: string | null, lessonId?: string, requestDomain?: string | null, topic?: string, level?: string, count: number = 4) {
+    if (!lessonId && !topic) {
+      throw new HttpException('Either Lesson ID or Topic is required to generate a quiz', HttpStatus.BAD_REQUEST);
     }
 
     this.rateLimitService.checkRateLimit(userId);
@@ -345,18 +345,19 @@ export class AssistantService {
       }
     }
 
-    const context = await this.retrievalService.getLessonContextForQuiz(lessonId);
+    let context = '';
+    if (lessonId) {
+      context = await this.retrievalService.getLessonContextForQuiz(lessonId);
+    }
 
-    const prompt = `You are an expert instructional designer and academic assessor. Based ONLY on the following course and lesson context, generate a diverse 4-question quiz.
-
-CONTEXT:
-${context}
-
-RULES:
-1. Ensure the questions directly test the material found in the lesson content.
+    const prompt = `You are an expert instructional designer and academic assessor. Generate a diverse ${count}-question quiz.
+${topic ? `\nSPECIAL FOCUS TOPIC: Make sure the questions specifically focus on this topic: "${topic}".` : ''}
+${level ? `\nDIFFICULTY LEVEL: Ensure the questions match this difficulty level: "${level}".` : ''}
+${context ? `\nCONTEXT:\n${context}\n\nRULES:\n1. Ensure the questions directly test the material found in the lesson content provided above.` : '\nRULES:\n1. Ensure the questions are accurate, educational, and relevant to the topic.'}
 2. Provide a mix of question types (e.g., MCQ, TRUE_FALSE, FILL_IN_BLANKS).
-3. The difficulty should match the specified Course Level.
-4. Output MUST be valid JSON exactly matching this schema, without markdown formatting or code blocks:
+3. The difficulty should match the requested difficulty level of "${level || 'Intermediate'}".
+4. Generate exactly ${count} questions.
+5. Output MUST be valid JSON exactly matching this schema, without markdown formatting or code blocks:
 
 {
   "questions": [

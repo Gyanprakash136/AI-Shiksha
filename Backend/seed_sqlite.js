@@ -12,8 +12,11 @@ async function main() {
 
     try {
         const admin = await prisma.user.upsert({
-            where: { email },
-            update: {},
+            where: { id: 'e35bb631-4d8c-4369-af73-f64987ef8430' },
+            update: {
+                email: email,
+                password_hash: hashedPassword
+            },
             create: {
                 id: 'e35bb631-4d8c-4369-af73-f64987ef8430', // Consistent ID
                 email,

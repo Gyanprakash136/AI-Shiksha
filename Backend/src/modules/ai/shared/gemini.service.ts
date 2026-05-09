@@ -7,7 +7,7 @@ export class GeminiService {
   private readonly logger = new Logger(GeminiService.name);
   private readonly client: AxiosInstance;
   private readonly apiKey: string;
-  private readonly baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent';
+  private readonly baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-preview:generateContent';
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('GEMINI_API_KEY') || '';

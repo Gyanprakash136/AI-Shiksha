@@ -518,9 +518,9 @@ export const AI = {
         const { data } = await api.post('/ai/public/chat', { message });
         return data;
     },
-    generateQuiz: async (lessonId: string) => {
-        const { data } = await api.post('/ai/assistant/generate-quiz', { lessonId });
-        return data;
+    generateQuiz: async (lessonId?: string, topic?: string, level?: string, count?: number) => {
+        const response = await api.post('/ai/assistant/generate-quiz', { lessonId, topic, level, count });
+        return response.data;
     }
 };
 

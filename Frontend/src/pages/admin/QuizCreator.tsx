@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { AdminDashboardLayout } from "@/components/layout/AdminDashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { QuizQuestion } from "@/types/courseBuilder";
 export default function QuizCreator() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast } = useToast();
     const isEditMode = !!id;
 
@@ -44,8 +45,25 @@ export default function QuizCreator() {
     useEffect(() => {
         if (isEditMode) {
             fetchQuiz();
+        } else if (location.state?.generatedQuiz) {
+            // Auto-fill from AI generated quiz
+            const genQuiz = location.state.generatedQuiz;
+            if (location.state.generatedTopic) {
+                setTitle(`${location.state.generatedTopic} Quiz`);
+            }
+            if (genQuiz.questions && Array.isArray(genQuiz.questions)) {
+                const mappedQuestions = genQuiz.questions.map((q: any) => ({
+                    ...q,
+                    correct_answer: q.correctAnswer || q.correct_answer,
+                    set_number: 1, // put them all in set 1
+                }));
+                setQuestions(mappedQuestions);
+                // Also set total sets to 1 and questions per set to the length
+                setTotalSets(1);
+                setQuestionsPerSet(mappedQuestions.length);
+            }
         }
-    }, [id]);
+    }, [id, location.state]);
 
     const fetchQuiz = async () => {
         try {

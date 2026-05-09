@@ -15,7 +15,16 @@ export class AuthService {
   ) { }
 
   async validateUser(email: string, pass: string, franchiseId?: string | null): Promise<any> {
-    const user = await this.usersService.findOne(email, franchiseId);
+    let user = await this.usersService.findOne(email, franchiseId);
+    
+    // Fallback: If not found in franchise, check if they are a SUPER_ADMIN (who have franchise_id = null)
+    if (!user && franchiseId) {
+      const systemUser = await this.usersService.findOne(email, null);
+      if (systemUser && systemUser.role === 'SUPER_ADMIN') {
+        user = systemUser;
+      }
+    }
+
     if (user && (await bcrypt.compare(pass, user.password_hash))) {
       const { password_hash, ...result } = user;
       return result;
