@@ -20,6 +20,7 @@ export class RetrievalService {
     courseId: string,
     query: string,
     sectionItemId?: string,
+    customApiKey?: string,
   ): Promise<string[]> {
     if (!query || !query.trim()) return [];
 
@@ -59,7 +60,7 @@ export class RetrievalService {
       }
     }
 
-    const courseChunks = await this.retrieveCourseEmbeddings(courseId, query);
+    const courseChunks = await this.retrieveCourseEmbeddings(courseId, query, customApiKey);
     chunks.push(...courseChunks);
 
     return chunks.slice(0, 10);
@@ -134,9 +135,9 @@ export class RetrievalService {
     return contentPieces.join('\n\n');
   }
 
-  private async retrieveCourseEmbeddings(courseId: string, query: string): Promise<string[]> {
+  private async retrieveCourseEmbeddings(courseId: string, query: string, customApiKey?: string): Promise<string[]> {
     // 1. Generate Embedding for the query
-    const embedding = await this.embeddingService.generateEmbedding(query);
+    const embedding = await this.embeddingService.generateEmbedding(query, customApiKey);
     
     // If embedding API fails, return empty array (fallback to no context)
     if (!embedding) {

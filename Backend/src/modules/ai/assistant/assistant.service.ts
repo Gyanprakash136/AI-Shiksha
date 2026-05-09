@@ -29,7 +29,7 @@ export class AssistantService {
 
   async chat(userId: string, tenantId: string | null, chatDto: ChatDto, requestDomain?: string | null, userRole?: string) {
     const start = Date.now();
-    const { courseId, message } = chatDto;
+    const { courseId, lessonId, message } = chatDto;
 
     // 0. Rate Limiting (Check BEFORE heavy ops)
     // Throws 429 if exceeded
@@ -178,7 +178,7 @@ export class AssistantService {
         }
 
         // 1d. Retrieve Relevant Content (RAG) using Custom API Key
-        chunks = await this.retrievalService.retrieveRelevantChunks(courseId, message, customApiKey);
+        chunks = await this.retrievalService.retrieveRelevantChunks(courseId, message, lessonId, customApiKey);
         const fullContent = chunks.join('\n\n---\n\n');
         contextContent = fullContent.slice(0, 4000);
 
