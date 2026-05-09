@@ -7,16 +7,18 @@ async function main() {
     console.log('🌱 Seeding database...');
 
     // Hash password
-    const hashedPassword = await bcrypt.hash('@#k$7878V', 10);
+    const email = process.env.ADMIN_EMAIL || 'admin@lms.com';
+    const password = process.env.ADMIN_PASSWORD || 'secure_placeholder_password';
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create admin user
     let admin = await prisma.user.findFirst({
-        where: { email: 'expertttrainers@gmail.com', franchise_id: null },
+        where: { email: email, franchise_id: null },
     });
     if (!admin) {
         admin = await prisma.user.create({
             data: {
-                email: 'expertttrainers@gmail.com',
+                email: email,
                 name: 'Super Admin User',
                 password_hash: hashedPassword,
                 role: 'SUPER_ADMIN',
