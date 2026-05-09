@@ -30,11 +30,30 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { AI } from "@/lib/api";
 
 export default function LessonEditor() {
   const { courseId, lessonId } = useParams();
   const [isSaving, setIsSaving] = useState(false);
   const [lessonType, setLessonType] = useState("video");
+  const [isGeneratingQuiz, setIsGeneratingQuiz] = useState(false);
+  const [questions, setQuestions] = useState<any[]>([]);
+
+  const handleGenerateQuiz = async () => {
+    if (!lessonId) return;
+    setIsGeneratingQuiz(true);
+    try {
+      const response = await AI.generateQuiz(lessonId);
+      if (response?.data?.questions) {
+        setQuestions(response.data.questions);
+        setLessonType("quiz");
+      }
+    } catch (error) {
+      console.error("Failed to generate quiz", error);
+    } finally {
+      setIsGeneratingQuiz(false);
+    }
+  };
 
   const handleSave = () => {
     setIsSaving(true);
@@ -187,37 +206,50 @@ export default function LessonEditor() {
                       <HelpCircle className="h-5 w-5 text-lms-amber" />
                       Quiz Questions
                     </CardTitle>
-                    <Button variant="outline" className="gap-2">
-                      <Sparkles className="h-4 w-4 text-lms-purple" />
-                      Generate Questions
+                    <Button variant="outline" className="gap-2" onClick={handleGenerateQuiz} disabled={isGeneratingQuiz}>
+                      {isGeneratingQuiz ? <Loader2 className="h-4 w-4 animate-spin text-lms-purple" /> : <Sparkles className="h-4 w-4 text-lms-purple" />}
+                      {isGeneratingQuiz ? "Generating..." : "Generate Questions"}
                     </Button>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Question 1 */}
-                  <div className="p-4 rounded-lg border">
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="font-medium">Question 1</span>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Trash2 className="h-4 w-4 text-muted-foreground" />
-                      </Button>
+                  {questions.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground border-2 border-dashed rounded-lg">
+                      No questions yet. Click "Generate Questions" to create them with AI.
                     </div>
-                    <Input defaultValue="What is the primary function of a neural network?" className="mb-3" />
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-lms-emerald" />
-                        <Input defaultValue="Pattern recognition and learning" className="flex-1" />
+                  ) : (
+                    questions.map((q, index) => (
+                      <div key={index} className="p-4 rounded-lg border">
+                        <div className="flex items-start justify-between mb-3">
+                          <span className="font-medium">Question {index + 1} <Badge variant="outline" className="ml-2">{q.type}</Badge></span>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Trash2 className="h-4 w-4 text-muted-foreground" />
+                          </Button>
+                        </div>
+                        <Input defaultValue={q.question} className="mb-3" />
+                        <div className="space-y-2">
+                          {q.options ? q.options.map((opt: string, i: number) => (
+                            <div key={i} className="flex items-center gap-2">
+                              {opt === q.correctAnswer ? (
+                                <CheckCircle className="h-4 w-4 text-lms-emerald" />
+                              ) : (
+                                <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
+                              )}
+                              <Input defaultValue={opt} className="flex-1" />
+                            </div>
+                          )) : (
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="h-4 w-4 text-lms-emerald" />
+                              <Input defaultValue={q.correctAnswer} className="flex-1" />
+                            </div>
+                          )}
+                          {q.explanation && (
+                            <p className="text-xs text-muted-foreground mt-2">Explanation: {q.explanation}</p>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                        <Input defaultValue="Data storage" className="flex-1" />
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="h-4 w-4 rounded-full border-2 border-muted-foreground" />
-                        <Input defaultValue="File compression" className="flex-1" />
-                      </div>
-                    </div>
-                  </div>
+                    ))
+                  )}
                   <Button variant="outline" className="w-full gap-2">
                     <Plus className="h-4 w-4" />
                     Add Question
@@ -314,9 +346,14 @@ export default function LessonEditor() {
                   <Sparkles className="h-4 w-4 text-lms-purple" />
                   Create Summary
                 </Button>
-                <Button variant="outline" className="w-full justify-start gap-2">
-                  <Sparkles className="h-4 w-4 text-lms-purple" />
-                  Auto-Generate Quiz
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start gap-2"
+                  onClick={handleGenerateQuiz}
+                  disabled={isGeneratingQuiz}
+                >
+                  {isGeneratingQuiz ? <Loader2 className="h-4 w-4 animate-spin text-lms-purple" /> : <Sparkles className="h-4 w-4 text-lms-purple" />}
+                  {isGeneratingQuiz ? "Generating Quiz..." : "Auto-Generate Quiz"}
                 </Button>
               </CardContent>
             </Card>

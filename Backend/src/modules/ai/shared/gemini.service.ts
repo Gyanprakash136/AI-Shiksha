@@ -78,4 +78,52 @@ export class GeminiService {
       throw new ServiceUnavailableException('The AI service is temporarily unavailable.');
     }
   }
+
+  async generateJson(prompt: string, customApiKey?: string): Promise<any> {
+    const keyToUse = customApiKey || this.apiKey;
+
+    if (!keyToUse) {
+      throw new InternalServerErrorException('AI settings misconfigured');
+    }
+
+    const payload = {
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: prompt }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.2,
+        maxOutputTokens: 2000,
+        responseMimeType: 'application/json',
+      },
+    };
+
+    try {
+      const response = await this.client.post(
+        `${this.baseUrl}?key=${keyToUse}`,
+        payload,
+      );
+
+      const candidates = response.data?.candidates;
+      if (!candidates || candidates.length === 0) {
+        throw new Error('Gemini returned no candidates');
+      }
+
+      const content = candidates[0].content?.parts?.[0]?.text;
+      if (!content) {
+        throw new Error('Gemini returned empty content');
+      }
+
+      return JSON.parse(content);
+    } catch (error) {
+      this.logger.error(
+        `Gemini JSON Generation Error: ${error.message}`,
+        error.response?.data ? JSON.stringify(error.response.data) : (error.stack || ''),
+      );
+      throw new ServiceUnavailableException('Failed to generate JSON response from AI.');
+    }
+  }
+
 }

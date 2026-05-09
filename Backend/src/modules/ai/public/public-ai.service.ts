@@ -40,11 +40,16 @@ export class PublicAiService {
             throw new HttpException('AI Features are currently disabled globally.', HttpStatus.FORBIDDEN);
         }
 
-        if (!franchise.gemini_api_key) {
+        let apiKey = franchise.gemini_api_key;
+        if (!apiKey && franchise.global_ai_control !== false) {
+            apiKey = process.env.GEMINI_API_KEY;
+        }
+
+        if (!apiKey) {
             throw new HttpException('Ask the Admin to Configure Gemini Key', HttpStatus.NOT_IMPLEMENTED);
         }
 
-        return franchise.gemini_api_key as string;
+        return apiKey as string;
     }
 
     async publicChat(franchiseId: string | null, ipAddress: string, message: string) {

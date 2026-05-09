@@ -517,6 +517,10 @@ export const AI = {
     publicChat: async (message: string) => {
         const { data } = await api.post('/ai/public/chat', { message });
         return data;
+    },
+    generateQuiz: async (lessonId: string) => {
+        const { data } = await api.post('/ai/assistant/generate-quiz', { lessonId });
+        return data;
     }
 };
 

@@ -294,5 +294,90 @@ export class AssistantService {
       );
     }
   }
+
+  async generateQuiz(userId: string, tenantId: string | null, lessonId: string, requestDomain?: string | null) {
+    if (!lessonId) {
+      throw new HttpException('Lesson ID is required', HttpStatus.BAD_REQUEST);
+    }
+
+    this.rateLimitService.checkRateLimit(userId);
+
+    let customApiKey: string | undefined = undefined;
+    let userFranchiseId: string | null | undefined = null;
+
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { franchise_id: true } });
+    userFranchiseId = u?.franchise_id;
+    if (!userFranchiseId && tenantId) userFranchiseId = tenantId;
+    
+    if (!userFranchiseId && requestDomain) {
+      const domainOnly = requestDomain.split(':')[0].toLowerCase().trim();
+      const parts = domainOnly.split('.');
+      const rootDomain = parts.length > 2 ? parts.slice(-2).join('.') : domainOnly;
+      const franchiseByDomain = await this.prisma.franchise.findFirst({
+        where: { OR: [{ domain: domainOnly }, { domain: rootDomain }, { domain: { contains: rootDomain } } as any] } as any,
+        select: { id: true } as any,
+      }) as any;
+      if (franchiseByDomain?.id) { userFranchiseId = franchiseByDomain.id; }
+      else {
+        const franchiseWithKey = await (this.prisma.franchise as any).findFirst({
+          where: { gemini_api_key: { not: null } }, select: { id: true }
+        });
+        if (franchiseWithKey?.id) userFranchiseId = franchiseWithKey.id;
+      }
+    }
+
+    if (userFranchiseId) {
+      const franchise = await this.prisma.franchise.findUnique({
+        where: { id: userFranchiseId },
+        select: { gemini_api_key: true, global_ai_control: true } as any,
+      }) as any;
+      if (franchise && franchise.global_ai_control === false) {
+        throw new HttpException('AI Assistant is currently disabled by the administrator.', HttpStatus.FORBIDDEN);
+      }
+      if (!franchise?.gemini_api_key) {
+        throw new HttpException('AI is not configured for this platform.', HttpStatus.NOT_IMPLEMENTED);
+      }
+      customApiKey = franchise.gemini_api_key as string;
+    } else {
+      const systemKey = (this.geminiService as any)['apiKey'];
+      if (!systemKey) {
+        throw new HttpException('AI is not configured for this platform.', HttpStatus.NOT_IMPLEMENTED);
+      }
+    }
+
+    const context = await this.retrievalService.getLessonContextForQuiz(lessonId);
+
+    const prompt = `You are an expert instructional designer and academic assessor. Based ONLY on the following course and lesson context, generate a diverse 4-question quiz.
+
+CONTEXT:
+${context}
+
+RULES:
+1. Ensure the questions directly test the material found in the lesson content.
+2. Provide a mix of question types (e.g., MCQ, TRUE_FALSE, FILL_IN_BLANKS).
+3. The difficulty should match the specified Course Level.
+4. Output MUST be valid JSON exactly matching this schema, without markdown formatting or code blocks:
+
+{
+  "questions": [
+    {
+      "type": "MCQ" | "TRUE_FALSE" | "FILL_IN_BLANKS",
+      "question": "The question text",
+      "options": ["A", "B", "C", "D"], // Only include options if type is MCQ
+      "correctAnswer": "The correct answer text",
+      "explanation": "A short explanation of why this answer is correct based on the text"
+    }
+  ]
+}
+`;
+
+    try {
+      const jsonData = await this.geminiService.generateJson(prompt, customApiKey);
+      return { status: 'success', data: jsonData };
+    } catch (error) {
+      this.logger.error(`AI Quiz Generation Error: ${error.message}`, error.stack);
+      throw new ServiceUnavailableException('The AI service is temporarily unavailable to generate the quiz.');
+    }
+  }
 }
 

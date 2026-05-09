@@ -25,4 +25,18 @@ export class AssistantController {
       || null;
     return this.assistantService.chat(req.user.userId, tenantId, chatDto, requestDomain, req.user.role);
   }
+
+  @Post('generate-quiz')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Auto-generate a quiz from lesson content' })
+  @ApiResponse({ status: 201, description: 'Quiz generated successfully.' })
+  generateQuiz(@Request() req, @Body() body: { lessonId: string }) {
+    const tenantId = req.tenantId || req.tenantBranding?.id || req.user?.franchise_id || null;
+    const requestDomain = (req.headers['custom-franchise-domain'] as string)
+      || (req.headers['x-franchise-domain'] as string)
+      || req.hostname
+      || null;
+    return this.assistantService.generateQuiz(req.user.userId, tenantId, body.lessonId, requestDomain);
+  }
 }

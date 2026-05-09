@@ -65,6 +65,42 @@ export class RetrievalService {
     return chunks.slice(0, 10);
   }
 
+  /**
+   * Retrieves the full context of a lesson along with its parent course details for AI Quiz Generation.
+   */
+  async getLessonContextForQuiz(sectionItemId: string): Promise<string> {
+    const item = await this.prisma.sectionItem.findUnique({
+      where: { id: sectionItemId },
+      include: {
+        lecture_content: true,
+        section: {
+          include: {
+            course: true,
+          },
+        },
+      },
+    });
+
+    if (!item) {
+      throw new Error(`Section Item ${sectionItemId} not found`);
+    }
+
+    const course = item.section?.course;
+    const lectureContext = this.buildLectureContext(item);
+
+    let context = `Course Title: ${course?.title || 'Unknown Course'}\n`;
+    if (course?.description) {
+      context += `Course Description: ${course.description}\n`;
+    }
+    if (course?.level) {
+      context += `Course Level: ${course.level}\n`;
+    }
+    context += `\nLesson Title: ${item.title}\n`;
+    context += `\nLesson Content:\n${lectureContext}`;
+
+    return context;
+  }
+
   private buildLectureContext(item: any): string {
     const contentPieces: string[] = [];
 
